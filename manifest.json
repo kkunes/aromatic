@@ -1,0 +1,23 @@
+{
+  "name": "Aromatic POS",
+  "short_name": "Aromatic",
+  "description": "Sistema de Punto de Venta Premium para Cafeterías",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4b3621",
+  "icons": [
+    {
+      "src": "recursos/logo efimero.png",
+      "sizes": "192x192 256x256 512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "recursos/logo efimero.png",
+      "sizes": "192x192 256x256 512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

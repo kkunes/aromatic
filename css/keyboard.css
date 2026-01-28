@@ -1,0 +1,155 @@
+/* Virtual Keyboard Styles */
+.keyboard-container {
+    position: fixed;
+    bottom: -100%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 850px;
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 24px 24px 0 0;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    z-index: 10000;
+    transition: bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    user-select: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.keyboard-container.active {
+    bottom: 0;
+}
+
+.keyboard-row {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+}
+
+.keyboard-key {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    height: 50px;
+    min-width: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--primary);
+    cursor: pointer;
+    transition: all 0.1s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.keyboard-key:active {
+    scale: 0.95;
+    background: #f8fafc;
+    border-color: var(--accent);
+}
+
+.keyboard-key.wide {
+    min-width: 80px;
+}
+
+.keyboard-key.extra-wide {
+    min-width: 120px;
+}
+
+.keyboard-key.space {
+    flex: 1;
+    max-width: 400px;
+}
+
+.keyboard-key.special {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.keyboard-key.action {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.keyboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding: 0 10px;
+}
+
+.keyboard-header span {
+    font-weight: 700;
+    color: var(--primary);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.keyboard-close-btn {
+    background: #fee2e2;
+    color: #ef4444;
+    border: none;
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.keyboard-close-btn:hover {
+    background: #ef4444;
+    color: white;
+}
+
+.keyboard-min-btn {
+    background: #f1f5f9;
+    color: #64748b;
+    border: none;
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.drag-handle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: grab;
+    flex: 1;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+.keyboard-container.dragging {
+    opacity: 0.8;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+}
+
+.keyboard-container.minimized #keyboardBody {
+    display: none;
+}
+
+.keyboard-container.minimized {
+    width: auto;
+    min-width: 250px;
+    padding: 10px 20px;
+    border-radius: 16px;
+    bottom: 20px !important;
+}
