@@ -317,6 +317,7 @@ const db = {
         const defaults = {
             manejarIVA: true,
             porcentajeIVA: 16,
+            folioInicio: 1,
             folioActual: 1,
             negocio: {
                 nombre: 'AROMATIC',
@@ -340,9 +341,13 @@ const db = {
             },
             fidelizacion: {
                 activo: true,
-                puntosPorDinero: 1, // 1 punto por cada $10 (se calcula en app)
+                puntosPorDinero: 1, // X puntos...
+                dineroBase: 10,     // ...por cada $Y (ej: 1 punto por cada $10)
                 valorPunto: 0.5, // cada punto vale $0.50
-                puntosParaCanje: 100 // mínimo de puntos para canjear
+                puntosParaCanje: 100, // mínimo de puntos para canjear
+                conversiones: [
+                    { puntos: 1, valor: 0.5 }
+                ]
             },
             auditoria: {
                 activo: true
@@ -351,11 +356,12 @@ const db = {
         const saved = localStorage.getItem('aromatic_settings');
         if (!saved) return defaults;
 
-        // Merge saved settings with defaults to ensure new fields (like negocio) exist
         const parsed = JSON.parse(saved);
         return {
             ...defaults,
             ...parsed,
+            folioInicio: parsed.folioInicio ?? defaults.folioInicio,
+            folioActual: parsed.folioActual ?? defaults.folioActual,
             negocio: {
                 ...defaults.negocio,
                 ...(parsed.negocio || {})
@@ -392,5 +398,15 @@ const db = {
 
     setCurrentUser(user) {
         localStorage.setItem('aromatic_current_user', JSON.stringify(user));
+    },
+
+    getNextFolio() {
+        const settings = this.getSettings();
+        const currentFolio = settings.folioActual || settings.folioInicio || 1;
+
+        settings.folioActual = currentFolio + 1;
+        this.saveSettings(settings);
+
+        return currentFolio;
     }
 };

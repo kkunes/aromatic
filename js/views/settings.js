@@ -13,8 +13,6 @@ const settingsView = {
             return this.renderFiscalForm(settings);
         } else if (this.activeSubView === 'ticket') {
             return this.renderTicketForm(settings);
-        } else if (this.activeSubView === 'loyalty') {
-            return this.renderLoyaltyForm(settings);
         } else if (this.activeSubView === 'users') {
             return this.renderUsersSection();
         } else if (this.activeSubView === 'maintenance') {
@@ -99,18 +97,6 @@ const settingsView = {
                         </div>
                     </button>
 
-                    <button class="settings-nav-card" onclick="settingsView.switchSubView('loyalty')" style="border: none; background: white; padding: 32px; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); cursor: pointer; transition: all 0.3s ease; text-align: left; display: flex; flex-direction: column; gap: 20px;">
-                        <div style="width: 60px; height: 60px; background: rgba(226, 150, 93, 0.1); border-radius: 18px; display: flex; align-items: center; justify-content: center; color: var(--accent);">
-                            <i data-lucide="award" style="width: 30px; height: 30px;"></i>
-                        </div>
-                        <div>
-                            <h3 style="margin: 0 0 8px 0; font-size: 1.25rem;">Programa de Lealtad</h3>
-                            <p style="margin: 0; color: var(--text-muted); font-size: 0.9rem; line-height: 1.4;">Configura cómo tus clientes ganan y canjean sus puntos.</p>
-                        </div>
-                        <div style="margin-top: auto; display: flex; align-items: center; gap: 8px; color: var(--accent); font-weight: 600; font-size: 0.9rem;">
-                            Configurar <i data-lucide="chevron-right" style="width: 16px;"></i>
-                        </div>
-                    </button>
 
                     <button class="settings-nav-card" onclick="settingsView.switchSubView('users')" style="border: none; background: white; padding: 32px; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); cursor: pointer; transition: all 0.3s ease; text-align: left; display: flex; flex-direction: column; gap: 20px;">
                         <div style="width: 60px; height: 60px; background: rgba(99, 102, 241, 0.08); border-radius: 18px; display: flex; align-items: center; justify-content: center; color: #6366f1;">
@@ -322,28 +308,36 @@ const settingsView = {
                             </div>
                         </div>
 
-                        <div class="input-group" style="margin-top: 30px; padding-top: 30px; border-top: 1px solid #f1f5f9;">
-                            <label style="font-weight: 600; display: flex; align-items: center; gap: 8px;">
-                                <i data-lucide="hash" style="width: 18px; color: var(--primary);"></i>
-                                Folio Consecutivo
-                            </label>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px;">
-                                <div>
-                                    <label style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px; display: block;">Folio Actual</label>
-                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; text-align: center;">
-                                        <span style="font-size: 2rem; font-weight: 800; color: var(--primary); font-family: 'Courier New', monospace;">#${String(settings.folioActual || 1).padStart(6, '0')}</span>
-                                    </div>
-                                    <small style="color: var(--text-muted); display: block; margin-top: 8px; text-align: center;">Próximo ticket</small>
+                        <div style="border-top: 1px solid #eee; margin: 40px 0; padding-top: 40px;">
+                            <h3 style="margin-bottom: 24px; font-size: 1.1rem; display: flex; align-items: center; gap: 10px;">
+                                <i data-lucide="file-text" style="width: 20px; color: var(--primary);"></i>
+                                Sistema de Folios
+                            </h3>
+                            
+                            <div class="input-group">
+                                <label style="font-weight: 600;">Folio inicial</label>
+                                <div style="position: relative;">
+                                    <input type="number" id="folioInicio" value="${settings.folioInicio || 1}" min="1" class="large-input" style="padding-left: 45px; font-size: 1.5rem;">
+                                    <i data-lucide="hash" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); width: 20px; color: var(--primary);"></i>
                                 </div>
-                                <div>
-                                    <label style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px; display: block;">Reiniciar desde</label>
-                                    <input type="number" id="folioInicio" value="${settings.folioActual || 1}" min="1" step="1" class="large-input" style="font-size: 1.3rem; text-align: center; font-family: 'Courier New', monospace;">
-                                    <small style="color: #f59e0b; display: block; margin-top: 8px;">⚠️ Cambia con precaución</small>
+                                <small style="color: var(--text-muted); display: block; margin-top: 8px;">Número desde el cual empezarán a contar los folios.</small>
+                            </div>
+
+                            <div class="input-group" style="margin-top: 25px;">
+                                <label style="font-weight: 600;">Folio actual</label>
+                                <div style="position: relative;">
+                                    <input type="number" id="folioActual" value="${settings.folioActual || settings.folioInicio || 1}" min="${settings.folioInicio || 1}" class="large-input" style="padding-left: 45px; font-size: 1.5rem; background: #fafafa;">
+                                    <i data-lucide="file-check" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); width: 20px; color: #22c55e;"></i>
+                                </div>
+                                <small style="color: var(--text-muted); display: block; margin-top: 8px;">Próximo número de folio a asignar. Se incrementa automáticamente con cada venta.</small>
+                            </div>
+
+                            <div style="background: #fef3c7; border: 1px solid #fbbf24; border-radius: 12px; padding: 16px; margin-top: 20px; display: flex; gap: 12px;">
+                                <i data-lucide="alert-circle" style="width: 20px; color: #f59e0b; flex-shrink: 0;"></i>
+                                <div style="font-size: 0.85rem; color: #92400e;">
+                                    <strong>Nota:</strong> Si modificas el folio actual, asegúrate de que no entre en conflicto con folios ya existentes.
                                 </div>
                             </div>
-                            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 12px; background: #fffbeb; padding: 12px; border-radius: 8px; border-left: 3px solid #f59e0b;">
-                                <strong>Nota:</strong> El folio se incrementa automáticamente con cada venta. Solo modifica este valor si necesitas ajustar la numeración.
-                            </p>
                         </div>
 
                         <div style="display: flex; gap: 12px; margin-top: 40px;">
@@ -460,73 +454,6 @@ const settingsView = {
         `;
     },
 
-    renderLoyaltyForm(settings) {
-        const loyalty = settings.fidelizacion;
-        return `
-            <div class="settings-container fade-in">
-                <div class="view-header">
-                    <div style="display: flex; align-items: center; gap: 16px;">
-                        <button class="btn-icon-small" onclick="settingsView.switchSubView('menu')">
-                            <i data-lucide="arrow-left"></i>
-                        </button>
-                        <div>
-                            <h1 style="margin:0;">Programa de Fidelidad</h1>
-                            <p style="color: var(--text-muted); font-size: 0.9rem;">Reglas de acumulación y canje de puntos</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card" style="max-width: 600px; margin: 30px auto; padding: 40px;">
-                    <form id="loyaltyForm">
-                        <div class="input-group" style="display: flex; align-items: center; justify-content: space-between; background: #fdfaf6; padding: 24px; border-radius: 20px; border: 1px solid #f9731633; margin-bottom: 30px;">
-                            <div>
-                                <h4 style="margin: 0; color: var(--primary); font-size: 1.1rem;">Estado del Programa</h4>
-                                <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 0.85rem;">Activar o desactivar el sistema de puntos.</p>
-                            </div>
-                            <label class="switch">
-                                <input type="checkbox" id="loyaltyActivo" ${loyalty.activo ? 'checked' : ''}>
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-
-                        <div id="loyaltyInputs" style="opacity: ${loyalty.activo ? '1' : '0.5'}; transition: all 0.3s ease;">
-                            <div class="input-group">
-                                <label style="font-weight: 600;">Puntos ganados por cada $10.00 MXN</label>
-                                <div style="position: relative;">
-                                    <input type="number" id="loyaltyPuntosXDinero" value="${loyalty.puntosPorDinero}" min="1" class="large-input" style="padding-left: 45px; font-size: 1.5rem;" ${!loyalty.activo ? 'disabled' : ''}>
-                                    <i data-lucide="coins" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); width: 20px; color: var(--accent);"></i>
-                                </div>
-                                <small style="color: var(--text-muted); display: block; margin-top: 8px;">Ej: '1' significa que una compra de $100 da 10 puntos.</small>
-                            </div>
-
-                            <div class="input-group" style="margin-top: 25px;">
-                                <label style="font-weight: 600;">Valor monetario de cada punto ($)</label>
-                                <div style="position: relative;">
-                                    <input type="number" id="loyaltyValorPunto" value="${loyalty.valorPunto}" step="0.01" class="large-input" style="padding-left: 45px; font-size: 1.5rem;" ${!loyalty.activo ? 'disabled' : ''}>
-                                    <i data-lucide="banknote" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); width: 20px; color: var(--success);"></i>
-                                </div>
-                                <small style="color: var(--text-muted); display: block; margin-top: 8px;">Ej: '0.50' significa que 10 puntos descuentan $5.00 MXN.</small>
-                            </div>
-
-                            <div class="input-group" style="margin-top: 25px;">
-                                <label style="font-weight: 600;">Puntos mínimos para canjear</label>
-                                <div style="position: relative;">
-                                    <input type="number" id="loyaltyMinimo" value="${loyalty.puntosParaCanje}" min="0" class="large-input" style="padding-left: 45px; font-size: 1.5rem;" ${!loyalty.activo ? 'disabled' : ''}>
-                                    <i data-lucide="shield-check" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); width: 20px; color: var(--primary);"></i>
-                                </div>
-                                <small style="color: var(--text-muted); display: block; margin-top: 8px;">El cliente no podrá usar sus puntos hasta alcanzar esta cifra.</small>
-                            </div>
-                        </div>
-
-                        <div style="display: flex; gap: 12px; margin-top: 40px;">
-                            <button type="button" class="btn-secondary" onclick="settingsView.switchSubView('menu')" style="flex: 1;">Volver</button>
-                            <button type="submit" class="btn-primary" style="flex: 2;">Guardar Reglas</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        `;
-    },
 
     async renderUsersSection() {
         this.usuarios = await db.getCollection('usuarios');
@@ -791,15 +718,18 @@ const settingsView = {
                 taxForm.onsubmit = (e) => {
                     e.preventDefault();
                     const currentSettings = db.getSettings();
-                    const newFolio = parseInt(document.getElementById('folioInicio').value) || 1;
+                    const folioInicioInput = parseInt(document.getElementById('folioInicio').value) || 1;
+                    const folioActualInput = parseInt(document.getElementById('folioActual').value) || folioInicioInput;
+                    
                     const newSettings = {
                         ...currentSettings,
                         manejarIVA: toggleIVA.checked,
                         porcentajeIVA: parseFloat(inputIVA.value) || 0,
-                        folioActual: newFolio
+                        folioInicio: folioInicioInput,
+                        folioActual: folioActualInput
                     };
                     db.saveSettings(newSettings);
-                    db.logAction('config', 'actualizar_fiscal', `IVA: ${toggleIVA.checked ? newSettings.porcentajeIVA + '%' : 'Desactivado'}, Folio: ${newFolio}`);
+                    db.logAction('config', 'actualizar_fiscal', `IVA: ${toggleIVA.checked ? newSettings.porcentajeIVA + '%' : 'Desactivado'}, Folio inicial: ${folioInicioInput}, Folio actual: ${folioActualInput}`);
                     this.showToast('Configuración fiscal guardada');
                     this.switchSubView('menu');
                 };

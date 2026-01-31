@@ -21,3 +21,9 @@ const utils = {
         return Math.random().toString(36).substr(2, 9).toUpperCase();
     }
 };
+
+document.addEventListener('wheel', function(event) {
+    if (document.activeElement.type === 'number') {
+        event.preventDefault();
+    }
+}, { passive: false });

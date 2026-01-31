@@ -503,7 +503,7 @@ class AromaticApp {
 
                 if (!searchVal) return true;
 
-                const folio = (v.id || '').slice(-8).toUpperCase();
+                const folio = v.folio || (v.id || '').slice(-8).toUpperCase();
                 const matchedFolio = folio.includes(searchVal);
                 const matchedProduct = v.items.some(i => i.nombre.toLowerCase().includes(searchVal));
                 const matchedTotal = v.total.toString().includes(searchVal);
@@ -524,7 +524,7 @@ class AromaticApp {
         }
 
         container.innerHTML = todayVentas.map(v => {
-            const folio = (v.id || '').slice(-8).toUpperCase();
+            const folio = v.folio || (v.id || '').slice(-8).toUpperCase();
             const timeStr = new Date(v.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
             return `
@@ -1511,7 +1511,7 @@ class AromaticApp {
                             
                             <div style="margin-top: 5px; position: relative; z-index: 1;">
                                 <div class="loyalty-balance">${cliente.puntos || 0} <span style="font-size: 1rem; opacity: 0.7;">pts</span></div>
-                                <div class="loyalty-value">Disponibles para canje: $${((cliente.puntos || 0) * settings.fidelizacion.valorPunto).toFixed(2)} MXN</div>
+                                <div class="loyalty-value">Disponibles para canje: $${(customersView.calculateTotalValue(cliente.puntos || 0, settings)).toFixed(2)} MXN</div>
                             </div>
 
                             <div class="loyalty-action">
@@ -1565,10 +1565,13 @@ class AromaticApp {
 
                     setTimeout(() => {
                         const maxPossibleDiscount = totalOriginal;
-                        const pointsNeededForTotal = Math.ceil(maxPossibleDiscount / settings.fidelizacion.valorPunto);
+                        const currentPoints = cliente.puntos || 0;
+                        const pointValue = (customersView.calculateTotalValue(currentPoints, settings) / (currentPoints || 1)) || settings.fidelizacion.valorPunto || 0;
 
-                        puntosCanjeados = Math.min(cliente.puntos, pointsNeededForTotal);
-                        descuentoPuntos = puntosCanjeados * settings.fidelizacion.valorPunto;
+                        const pointsNeededForTotal = Math.ceil(maxPossibleDiscount / (pointValue || 1));
+
+                        puntosCanjeados = Math.min(currentPoints, pointsNeededForTotal);
+                        descuentoPuntos = puntosCanjeados * pointValue;
 
                         showMainMethods(); // Refresh modal
                     }, 400);
@@ -1659,7 +1662,7 @@ class AromaticApp {
             }
 
             const venta = {
-                folio: settings.folioActual,
+                folio: db.getNextFolio(),
                 items: [...cart],
                 total: finalTotal,
                 totalOriginal: totalOriginal,
@@ -1678,10 +1681,6 @@ class AromaticApp {
             const docRef = await db.addDocument('ventas', venta);
             venta.id = docRef.id;
 
-            // Increment folio for next sale
-            settings.folioActual = (settings.folioActual || 1) + 1;
-            db.saveSettings(settings);
-
             audioService.playSuccess(); // Premium sound
 
             // Loyalty Points
@@ -1693,7 +1692,8 @@ class AromaticApp {
                     newTotalPoints -= venta.puntosCanjeados;
                 } else {
                     // Scenario: Accrual - award points normally
-                    const puntosGanados = Math.floor(venta.total / 10) * settings.fidelizacion.puntosPorDinero;
+                    const dineroBase = settings.fidelizacion.dineroBase || 10;
+                    const puntosGanados = Math.floor(venta.total / dineroBase) * settings.fidelizacion.puntosPorDinero;
                     newTotalPoints += puntosGanados;
                 }
 
@@ -1867,6 +1867,7 @@ class AromaticApp {
             let mesaInfo = { id: mesa.id, nombre: mesa.nombre, area: mesa.area };
 
             const venta = {
+                folio: db.getNextFolio(),
                 items: [...selectedItems],
                 total: finalTotal,
                 totalOriginal: totalOriginal,
@@ -1980,7 +1981,7 @@ class AromaticApp {
                 await this.updateStockFromRecipe(item, item.quantity, 'add');
             }
             await db.deleteDocument('ventas', id);
-            await db.logAction('ventas', 'anular_venta', `Venta No. ${id.slice(-8).toUpperCase()} de $${venta.total.toFixed(2)}`);
+            await db.logAction('ventas', 'anular_venta', `Venta No. ${venta.folio || id.slice(-8).toUpperCase()} de $${venta.total.toFixed(2)}`);
             this.updateDailyHistoryUI();
         }
 

@@ -5,11 +5,16 @@
 const customersView = {
     customers: [],
     filterQuery: '',
+    activeSubView: 'list',
 
     async render() {
         this.customers = await db.getCollection('clientes');
         const settings = db.getSettings();
         const loyalty = settings.fidelizacion;
+
+        if (this.activeSubView === 'loyalty') {
+            return this.renderLoyaltyConfig(settings);
+        }
 
         const filtered = this.customers.filter(c =>
             c.nombre.toLowerCase().includes(this.filterQuery.toLowerCase()) ||
@@ -28,9 +33,14 @@ const customersView = {
                         </div>
                         <p style="color: var(--text-muted); font-size: 1rem; margin-left: 54px;">Gestión de fidelidad y perfiles exclusivos</p>
                     </div>
-                    <button class="btn-primary" id="addCustomerBtn" style="padding: 14px 28px; border-radius: 16px; font-weight: 700; font-size: 1rem; display: flex; align-items: center; gap: 10px; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
-                        <i data-lucide="user-plus" style="width: 20px;"></i> REGISTRAR CLIENTE
-                    </button>
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn-secondary" onclick="customersView.switchSubView('loyalty')" style="padding: 14px 28px; border-radius: 16px; font-weight: 700; font-size: 1rem; display: flex; align-items: center; gap: 10px; transition: all 0.3s; border: 2px solid var(--accent); color: var(--accent);">
+                            <i data-lucide="settings" style="width: 20px;"></i> PROGRAMA DE LEALTAD
+                        </button>
+                        <button class="btn-primary" id="addCustomerBtn" style="padding: 14px 28px; border-radius: 16px; font-weight: 700; font-size: 1rem; display: flex; align-items: center; gap: 10px; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+                            <i data-lucide="user-plus" style="width: 20px;"></i> REGISTRAR CLIENTE
+                        </button>
+                    </div>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px; margin-bottom: 35px;">
@@ -91,7 +101,7 @@ const customersView = {
                                 <div class="cust-card-footer">
                                     <div class="cust-monetary-val">
                                         <div class="lbl">Saldos Disponibles</div>
-                                        <div class="val">$${((c.puntos || 0) * loyalty.valorPunto).toFixed(2)} <span style="font-size: 0.75rem; letter-spacing: 0;">MXN</span></div>
+                                        <div class="val">$${(this.calculateTotalValue(c.puntos || 0, settings)).toFixed(2)} <span style="font-size: 0.75rem; letter-spacing: 0;">MXN</span></div>
                                     </div>
                                     <div class="cust-actions">
                                         <button class="btn-action-premium edit" onclick="customersView.editCustomer('${c.id}')" title="Editar Perfil">
@@ -303,21 +313,291 @@ const customersView = {
         `;
     },
 
+    renderLoyaltyConfig(settings) {
+        const loyalty = settings.fidelizacion;
+        const totalClientes = this.customers.length;
+        const clientesConPuntos = this.customers.filter(c => (c.puntos || 0) > 0).length;
+        const totalPuntos = this.customers.reduce((sum, c) => sum + (c.puntos || 0), 0);
+        const valorTotal = totalPuntos * (loyalty.valorPunto || 0);
+
+        return `
+            <div class="loyalty-config-view fade-in" style="max-width: 1000px; margin: 0 auto; padding-bottom: 60px;">
+                <!-- Header -->
+                <div class="view-header" style="margin-bottom: 40px; display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 20px;">
+                        <button class="btn-icon-premium" onclick="customersView.switchSubView('list')" style="width: 50px; height: 50px; background: white; border: 1px solid #e2e8f0; border-radius: 16px; display: flex; align-items: center; justify-content: center; color: var(--primary); cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+                            <i data-lucide="arrow-left" style="width: 24px;"></i>
+                        </button>
+                        <div>
+                            <h1 style="font-family: 'Playfair Display', serif; font-size: 2.8rem; margin: 0; color: var(--primary); letter-spacing: -1px;">Programa de Lealtad</h1>
+                            <p style="color: var(--text-muted); font-size: 1.1rem; margin: 4px 0 0 0; font-weight: 500;">Configure la estructura de recompensas y fidelización</p>
+                        </div>
+                    </div>
+                    <div style="background: white; padding: 10px 20px; border-radius: 20px; border: 1px solid #f1f5f9; display: flex; align-items: center; gap: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+                        <span style="font-weight: 700; font-size: 0.9rem; color: ${loyalty.activo ? '#15803d' : '#94a3b8'}">
+                            ${loyalty.activo ? 'SISTEMA ACTIVADO' : 'SISTEMA DESACTIVADO'}
+                        </span>
+                        <label class="switch">
+                            <input type="checkbox" id="loyaltyMasterToggle" ${loyalty.activo ? 'checked' : ''}>
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Metrics Dashboard -->
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 40px;">
+                    <div class="glass-stat-card" style="background: linear-gradient(135deg, var(--primary) 0%, #2d231a 100%); color: white; padding: 25px; border-radius: 24px; box-shadow: 0 10px 25px rgba(45,35,26,0.15); transition: transform 0.3s ease;">
+                        <i data-lucide="users" style="width: 24px; color: var(--accent); margin-bottom: 15px;"></i>
+                        <div style="font-size: 2rem; font-weight: 800; font-family: 'Playfair Display', serif;">${clientesConPuntos}</div>
+                        <div style="font-size: 0.8rem; opacity: 0.8; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Clientes Leales</div>
+                    </div>
+                    <div class="glass-stat-card" style="background: white; padding: 25px; border-radius: 24px; border: 1px solid #f1f5f9; box-shadow: 0 4px 15px rgba(0,0,0,0.02); transition: transform 0.3s ease;">
+                        <i data-lucide="award" style="width: 24px; color: var(--accent); margin-bottom: 15px;"></i>
+                        <div style="font-size: 2rem; font-weight: 800; font-family: 'Playfair Display', serif; color: var(--primary);">${totalPuntos.toLocaleString()}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Puntos en Circulación</div>
+                    </div>
+                    <div class="glass-stat-card" style="background: white; padding: 25px; border-radius: 24px; border: 1px solid #f1f5f9; box-shadow: 0 4px 15px rgba(0,0,0,0.02); transition: transform 0.3s ease;">
+                        <i data-lucide="banknote" style="width: 24px; color: #15803d; margin-bottom: 15px;"></i>
+                        <div style="font-size: 2rem; font-weight: 800; font-family: 'Playfair Display', serif; color: #15803d;">$${valorTotal.toFixed(2)}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Valor en Monederos</div>
+                    </div>
+                    <div class="glass-stat-card" style="background: white; padding: 25px; border-radius: 24px; border: 1px solid #f1f5f9; box-shadow: 0 4px 15px rgba(0,0,0,0.02); transition: transform 0.3s ease;">
+                        <i data-lucide="trending-up" style="width: 24px; color: var(--primary); margin-bottom: 15px;"></i>
+                        <div style="font-size: 2rem; font-weight: 800; font-family: 'Playfair Display', serif; color: var(--primary);">${totalClientes > 0 ? Math.round((clientesConPuntos / totalClientes) * 100) : 0}%</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Tasa de Retención</div>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 350px 1fr; gap: 30px; align-items: start;">
+                    <!-- Rules Sidebar -->
+                    <div style="display: flex; flex-direction: column; gap: 20px;">
+                        <div class="premium-config-card" style="background: #fdfaf6; border-radius: 28px; padding: 30px; border: 1px solid rgba(226, 150, 93, 0.2);">
+                            <h3 style="margin: 0 0 20px 0; font-size: 1.2rem; color: var(--primary); display: flex; align-items: center; gap: 10px;">
+                                <i data-lucide="zap" style="width: 20px; color: var(--accent);"></i>
+                                Reglas de Ganancia
+                            </h3>
+                            <div style="display: flex; flex-direction: column; gap: 15px;">
+                                <div class="input-group">
+                                    <label style="font-weight: 700; font-size: 0.85rem; color: #94a3b8; text-transform: uppercase;">Puntos a otorgar</label>
+                                    <div style="position: relative; margin-top: 10px;">
+                                        <input type="number" id="loyaltyPuntosXDinero" value="${loyalty.puntosPorDinero || 1}" min="1" class="premium-input" style="width: 100%; border-radius: 16px; padding: 15px 15px 15px 50px; font-size: 1.5rem; font-weight: 800; color: var(--primary); border: 1.5px solid #e2e8f0; outline: none;">
+                                        <i data-lucide="award" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); width: 22px; color: var(--accent);"></i>
+                                    </div>
+                                </div>
+
+                                <div class="input-group">
+                                    <label style="font-weight: 700; font-size: 0.85rem; color: #94a3b8; text-transform: uppercase;">Por cada monto de ($)</label>
+                                    <div style="position: relative; margin-top: 10px;">
+                                        <input type="number" id="loyaltyDineroBase" value="${loyalty.dineroBase || 10}" min="1" class="premium-input" style="width: 100%; border-radius: 16px; padding: 15px 15px 15px 50px; font-size: 1.5rem; font-weight: 800; color: #15803d; border: 1.5px solid #e2e8f0; outline: none;">
+                                        <i data-lucide="banknote" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); width: 22px; color: #15803d;"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <p id="earningHelp" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 20px; padding: 15px; background: white; border-radius: 12px; border: 1px dashed #e2e8f0; line-height: 1.4;">
+                                <strong>Resumen:</strong> El cliente recibirá <strong style="color: var(--accent);">${loyalty.puntosPorDinero}</strong> puntos por cada <strong style="color: #15803d;">$${loyalty.dineroBase}</strong> gastados.
+                            </p>
+
+                            <div class="input-group" style="margin-top: 25px;">
+                                <label style="font-weight: 700; font-size: 0.85rem; color: #94a3b8; text-transform: uppercase;">Mínimo para Canje</label>
+                                <div style="position: relative; margin-top: 10px;">
+                                    <input type="number" id="loyaltyMinimo" value="${loyalty.puntosParaCanje}" min="0" class="premium-input" style="width: 100%; border-radius: 16px; padding: 15px 15px 15px 50px; font-size: 1.5rem; font-weight: 800; color: var(--primary); border: 1.5px solid #e2e8f0; outline: none;">
+                                    <i data-lucide="lock" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); width: 22px; color: var(--primary);"></i>
+                                </div>
+                                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 12px; line-height: 1.4;">
+                                    Los puntos no podrán ser usados hasta que el cliente alcance esta cifra.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div style="background: white; border-radius: 28px; padding: 25px; border: 1px solid #f1f5f9; text-align: center;">
+                            <img src="recursos/logo efimero.png" style="width: 40px; opacity: 0.2; filter: grayscale(1); margin-bottom: 15px;">
+                            <p style="font-size: 0.8rem; color: #cbd5e1; margin: 0;">Aromatic Loyalty Engine v2.5<br>Sistema de Fidelización Inteligente</p>
+                        </div>
+                    </div>
+
+                    <!-- Conversion Table -->
+                    <div style="background: white; border-radius: 32px; padding: 40px; border: 1px solid #f1f5f9; box-shadow: 0 4px 25px rgba(0,0,0,0.02);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.5rem; font-family: 'Playfair Display', serif; color: var(--primary);">Valorización de Puntos</h3>
+                                <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 5px;">Define cuánto vale cada punto según el nivel del cliente</p>
+                            </div>
+                            <button type="button" onclick="customersView.addConversionRow()" class="btn-add-row" style="background: #fdfaf6; color: var(--primary); border: 1px solid rgba(75, 54, 33, 0.1); padding: 10px 18px; border-radius: 12px; font-weight: 700; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.3s;">
+                                <i data-lucide="plus" style="width: 16px;"></i> AÑADIR NIVEL
+                            </button>
+                        </div>
+
+                        <div id="conversionTableContainer" style="display: flex; flex-direction: column; gap: 12px;">
+                            <!-- Rows injected here -->
+                        </div>
+
+                        <div style="margin-top: 40px; padding-top: 30px; border-top: 1px solid #f1f5f9; display: flex; gap: 15px;">
+                            <button type="button" class="btn-secondary" onclick="customersView.switchSubView('list')" style="flex: 1; padding: 18px; border-radius: 18px; font-weight: 700; font-size: 1rem; border: 1px solid #e2e8f0; background: white; color: #64748b; cursor: pointer;">CANCELAR</button>
+                            <button type="button" class="btn-primary" onclick="customersView.saveLoyaltySettings()" style="flex: 2; padding: 18px; border-radius: 18px; font-weight: 800; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 10px; border: none; background: var(--primary); color: white; cursor: pointer;">
+                                <i data-lucide="check-circle" style="width: 22px;"></i> GUARDAR CAMBIOS
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
+    switchSubView(view) {
+        this.activeSubView = view;
+        this.refreshGrid();
+    },
+
     bindEvents(app) {
-        document.getElementById('addCustomerBtn').onclick = () => this.showCustomerModal();
-        document.getElementById('customerSearch').oninput = (e) => {
-            this.filterQuery = e.target.value;
-            this.refreshGrid();
+        const addBtn = document.getElementById('addCustomerBtn');
+        const searchInput = document.getElementById('customerSearch');
+
+        if (addBtn) {
+            addBtn.onclick = () => this.showCustomerModal();
+        }
+
+        if (searchInput) {
+            searchInput.oninput = (e) => {
+                this.filterQuery = e.target.value;
+                this.refreshGrid();
+            };
+        }
+
+        if (this.activeSubView === 'loyalty') {
+            this.bindLoyaltyEvents();
+        }
+    },
+
+    bindLoyaltyEvents() {
+        const toggle = document.getElementById('loyaltyMasterToggle');
+        const puntosInput = document.getElementById('loyaltyPuntosXDinero');
+        const dineroBaseInput = document.getElementById('loyaltyDineroBase');
+
+        const updateHelp = () => {
+            const points = parseInt(puntosInput.value) || 0;
+            const base = parseInt(dineroBaseInput.value) || 1;
+            const helpText = document.getElementById('earningHelp');
+            if (helpText) {
+                helpText.innerHTML = `<strong>Resumen:</strong> El cliente recibirá <strong style="color: var(--accent);">${points}</strong> puntos por cada <strong style="color: #15803d;">$${base}</strong> gastados.`;
+            }
         };
+
+        if (toggle) {
+            toggle.onchange = async (e) => {
+                const settings = db.getSettings();
+                settings.fidelizacion.activo = e.target.checked;
+                db.saveSettings(settings);
+                await db.logAction('config', e.target.checked ? 'activar_lealtad' : 'desactivar_lealtad', 'Cambio en programa de fidelización');
+                this.refreshGrid();
+            };
+        }
+
+        if (puntosInput) puntosInput.oninput = updateHelp;
+        if (dineroBaseInput) dineroBaseInput.oninput = updateHelp;
+
+        this.renderConversionTable();
+    },
+
+    renderConversionTable() {
+        const settings = db.getSettings();
+        const container = document.getElementById('conversionTableContainer');
+        if (!container) return;
+
+        const conversions = settings.fidelizacion.conversiones || [
+            { puntos: 1, valor: settings.fidelizacion.valorPunto || 0.5 }
+        ];
+
+        container.innerHTML = conversions.map((conv, idx) => `
+            <div class="conversion-row" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 15px; align-items: center; background: #f8fafc; padding: 20px; border-radius: 20px; border: 1px solid transparent; transition: all 0.3s;">
+                <div class="input-group" style="margin: 0;">
+                    <label style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px; display: block;">Desde (Nivel Puntos)</label>
+                    <div style="position: relative;">
+                        <input type="number" class="puntos-input" value="${conv.puntos}" min="0" style="width: 100%; padding: 12px 12px 12px 40px; border-radius: 12px; font-weight: 700; border: 1.5px solid #e2e8f0; outline: none;">
+                        <i data-lucide="hash" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; color: #94a3b8;"></i>
+                    </div>
+                </div>
+                <div class="input-group" style="margin: 0;">
+                    <label style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px; display: block;">Valor de cada punto</label>
+                    <div style="position: relative;">
+                        <input type="number" class="valor-input" value="${conv.valor}" step="0.01" min="0" style="width: 100%; padding: 12px 12px 12px 40px; border-radius: 12px; font-weight: 800; color: #15803d; border: 1.5px solid #e2e8f0; outline: none;">
+                        <span style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-weight: 800; color: #15803d; font-size: 1.1rem;">$</span>
+                    </div>
+                </div>
+                <div>
+                    ${conversions.length > 1 ? `
+                        <button type="button" class="btn-icon-small danger" onclick="customersView.removeConversionRow(${idx})" style="width: 44px; height: 44px; border-radius: 12px; border: none; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                            <i data-lucide="trash-2" style="width: 20px;"></i>
+                        </button>
+                    ` : '<div style="width: 44px;"></div>'}
+                </div>
+            </div>
+        `).join('');
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    },
+
+    addConversionRow() {
+        const settings = db.getSettings();
+        if (!settings.fidelizacion.conversiones) {
+            settings.fidelizacion.conversiones = [{ puntos: 1, valor: settings.fidelizacion.valorPunto || 0.5 }];
+        }
+
+        const last = settings.fidelizacion.conversiones[settings.fidelizacion.conversiones.length - 1];
+        settings.fidelizacion.conversiones.push({
+            puntos: (last?.puntos || 0) + 100,
+            valor: (last?.valor || 0.5) + 0.1
+        });
+
+        db.saveSettings(settings);
+        this.renderConversionTable();
+        if (typeof audioService !== 'undefined') audioService.playPop();
+    },
+
+    removeConversionRow(idx) {
+        const settings = db.getSettings();
+        if (!settings.fidelizacion.conversiones) return;
+        settings.fidelizacion.conversiones.splice(idx, 1);
+        db.saveSettings(settings);
+        this.renderConversionTable();
+    },
+
+    async saveLoyaltySettings() {
+        const settings = db.getSettings();
+        const conversions = [];
+
+        document.querySelectorAll('#conversionTableContainer .conversion-row').forEach(row => {
+            const puntos = parseInt(row.querySelector('.puntos-input').value) || 0;
+            const valor = parseFloat(row.querySelector('.valor-input').value) || 0;
+            conversions.push({ puntos, valor });
+        });
+
+        conversions.sort((a, b) => a.puntos - b.puntos);
+
+        settings.fidelizacion = {
+            ...settings.fidelizacion,
+            puntosPorDinero: parseInt(document.getElementById('loyaltyPuntosXDinero').value) || 1,
+            dineroBase: parseInt(document.getElementById('loyaltyDineroBase').value) || 10,
+            puntosParaCanje: parseInt(document.getElementById('loyaltyMinimo').value) || 0,
+            conversiones: conversions,
+            valorPunto: conversions.length > 0 ? conversions[0].valor : (settings.fidelizacion.valorPunto || 0.5)
+        };
+
+        db.saveSettings(settings);
+        await db.logAction('config', 'actualizar_lealtad', 'Reglas actualizadas');
+
+        if (typeof app !== 'undefined') app.showToast('Configuración guardada satisfactoriamente', 'success');
+        if (typeof audioService !== 'undefined') audioService.playSuccess();
+        this.switchSubView('list');
     },
 
     async refreshGrid() {
         const container = document.getElementById('view-container');
-        const activeView = document.querySelector('.nav-links li.active').getAttribute('data-view');
+        const activeView = document.querySelector('.nav-links li.active')?.getAttribute('data-view');
         if (activeView === 'customers') {
             const html = await this.render();
             container.innerHTML = `<div class="view-enter">${html}</div>`;
-            container.scrollTop = 0; // Reset scroll to top
+            container.scrollTop = 0;
             if (typeof lucide !== 'undefined') lucide.createIcons();
             this.bindEvents();
         }
@@ -383,7 +663,7 @@ const customersView = {
 
         if (typeof lucide !== 'undefined') lucide.createIcons();
         modal.classList.remove('hidden');
-        audioService.playPop(); // Premium sound
+        audioService.playPop();
 
         document.getElementById('customerForm').onsubmit = async (e) => {
             e.preventDefault();
@@ -403,6 +683,22 @@ const customersView = {
             modal.classList.add('hidden');
             this.refreshGrid();
         };
+    },
+
+    calculateTotalValue(puntos, settings) {
+        if (!puntos) return 0;
+        const loyalty = settings.fidelizacion;
+        const conversions = loyalty.conversiones || [];
+
+        if (conversions.length === 0) return puntos * (loyalty.valorPunto || 0);
+
+        // Find the applicable tier (the one with the most points that is <= current points)
+        // Sort DESC to find the first one that fits
+        const sorted = [...conversions].sort((a, b) => b.puntos - a.puntos);
+        const tier = sorted.find(t => puntos >= t.puntos);
+
+        const rate = tier ? tier.valor : (loyalty.valorPunto || 0);
+        return puntos * rate;
     },
 
     async editCustomer(id) {

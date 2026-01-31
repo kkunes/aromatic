@@ -20,7 +20,7 @@ const ticketView = {
                 </div>
                 
                 <div class="ticket-info" style="border-bottom: 1px dashed #000; padding-bottom: 8px; margin-bottom: 10px; color: #000;">
-                    <p style="margin: 2px 0;"><strong>Folio:</strong> #${venta.folio ? String(venta.folio).padStart(6, '0') : (venta.id || '---').slice(-8).toUpperCase()}</p>
+                    <p style="margin: 2px 0;"><strong>Ticket:</strong> #${venta.folio || (venta.id || '---').slice(-8).toUpperCase()}</p>
                     ${venta.mesa ? `<p style="margin: 2px 0;"><strong>Mesa:</strong> ${venta.mesa.nombre} (${venta.mesa.area})</p>` : ''}
                     <p style="margin: 2px 0;"><strong>Fecha:</strong> ${new Date(venta.fecha).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}</p>
                 </div>

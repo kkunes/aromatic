@@ -629,3 +629,24 @@ body {
 .product-card.cat-comida:hover {
     border-color: var(--cat-comida);
 }
+
+/* Remove spinners from number inputs and disable scroll behavior */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+/* Prevent scroll wheel from changing number input values */
+input[type="number"] {
+    pointer-events: auto;
+}
+
+input[type="number"]:focus {
+    pointer-events: auto;
+}
