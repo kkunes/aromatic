@@ -471,6 +471,25 @@ const settingsView = {
                                 <textarea id="confMensaje" style="height: 60px; font-size: 0.95rem; padding: 12px;">${settings.negocio.mensajeTicket}</textarea>
                             </div>
 
+                            <h3 style="margin-bottom: 20px; font-size: 1.1rem; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 30px;">Código QR Promocional</h3>
+                            <div style="background: #f8fafc; padding: 20px; border-radius: 20px; border: 1px solid #e2e8f0; margin-bottom: 30px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                    <span style="font-weight: 700; color: var(--primary);">Habilitar QR en Ticket</span>
+                                    <label class="switch">
+                                        <input type="checkbox" id="confQRActive" ${config.mostrarQR ? 'checked' : ''} class="preview-trigger">
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                                <div class="input-group">
+                                    <label>Contenido del QR (URL o Texto)</label>
+                                    <input type="text" id="confQRContent" value="${config.contenidoQR || ''}" placeholder="Ej: https://instagram.com/tu_negocio" class="large-input" style="font-size: 0.9rem;">
+                                </div>
+                                <div class="input-group" style="margin-top: 15px;">
+                                    <label>Mensaje sobre el QR</label>
+                                    <input type="text" id="confQRMessage" value="${config.mensajeQR || ''}" placeholder="Ej: ¡Síguenos para promociones!" class="large-input" style="font-size: 0.9rem;">
+                                </div>
+                            </div>
+
                             <div style="display: flex; gap: 12px; margin-top: 40px;">
                                 <button type="button" class="btn-secondary" onclick="settingsView.switchSubView('menu')" style="flex: 1;">Cancelar</button>
                                 <button type="submit" class="btn-primary" style="flex: 2;">Guardar Diseño</button>
@@ -809,6 +828,9 @@ const settingsView = {
                     mostrarRFC: document.getElementById('confRFC').checked,
                     mostrarNotas: document.getElementById('confNotas').checked,
                     mostrarExtras: document.getElementById('confExtras').checked,
+                    mostrarQR: document.getElementById('confQRActive').checked,
+                    contenidoQR: document.getElementById('confQRContent').value,
+                    mensajeQR: document.getElementById('confQRMessage').value,
                     tamanoFuente: parseInt(fontSizeInput.value),
                     anchoPapel: 58
                 };
@@ -866,6 +888,9 @@ const settingsView = {
                             mostrarRFC: document.getElementById('confRFC').checked,
                             mostrarNotas: document.getElementById('confNotas').checked,
                             mostrarExtras: document.getElementById('confExtras').checked,
+                            mostrarQR: document.getElementById('confQRActive').checked,
+                            contenidoQR: document.getElementById('confQRContent').value,
+                            mensajeQR: document.getElementById('confQRMessage').value,
                             tamanoFuente: parseInt(fontSizeInput.value),
                             anchoPapel: 58
                         },
@@ -1098,7 +1123,7 @@ const settingsView = {
                     alert('Importación exitosa. La aplicación se reiniciará.');
                     location.reload();
                 } else {
-                    alert('Error al importar el archivo. Asegúrate de que sea un respaldo válido de Aromatic POS.');
+                    alert('Error al importar el archivo. Asegúrate de que sea un respaldo válido del sistema.');
                 }
             };
             reader.readAsDataURL(file);

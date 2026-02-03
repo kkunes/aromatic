@@ -466,7 +466,7 @@ const customersView = {
 
                         <div style="background: white; border-radius: 28px; padding: 25px; border: 1px solid #f1f5f9; text-align: center;">
                             <img src="recursos/logo efimero.png" style="width: 40px; opacity: 0.2; filter: grayscale(1); margin-bottom: 15px;">
-                            <p style="font-size: 0.8rem; color: #cbd5e1; margin: 0;">Aromatic Loyalty Engine v2.5<br>Sistema de Fidelización Inteligente</p>
+                            <p style="font-size: 0.8rem; color: #cbd5e1; margin: 0;">Loyalty Engine v2.5<br>Sistema de Fidelización Inteligente</p>
                         </div>
                     </div>
 
@@ -1011,7 +1011,7 @@ const customersView = {
         const modal = document.getElementById('modalContainer');
         const modalContent = modal.querySelector('.modal-content');
 
-        const initialMsg = `¡Hola ${customer.nombre.split(' ')[0]}! 👋✨\n\nNotamos que te encanta nuestra sección de *${favoriteCat}*, por eso hoy tenemos una sorpresa para ti:\n\n🔥 *${selectedPromo.nombre}*\n\n¡Te esperamos en Aromatic para consentirte! ☕🥐`;
+        const initialMsg = `¡Hola ${customer.nombre.split(' ')[0]}! 👋✨\n\nNotamos que te encanta nuestra sección de *${favoriteCat}*, por eso hoy tenemos una sorpresa para ti:\n\n🔥 *${selectedPromo.nombre}*\n\n¡Te esperamos en *${settings.negocio.nombre}* para consentirte! ☕🥐`;
 
         modalContent.innerHTML = `
             <div class="marketing-hub fade-in" style="width: 800px; display: flex; flex-direction: column; gap: 25px;">

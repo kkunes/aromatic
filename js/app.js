@@ -108,7 +108,7 @@ class AromaticApp {
 
         tour.addStep({
             id: 'welcome',
-            title: '¡Bienvenido a Aromatic POS!',
+            title: `¡Bienvenido a ${bizName} POS!`,
             text: 'Este sistema ha sido diseñado para ofrecerte la mejor experiencia en gestión de café y ventas. ¿Te gustaría conocer lo básico?',
             buttons: [
                 {
@@ -200,16 +200,20 @@ class AromaticApp {
 
     updateBranding() {
         const settings = db.getSettings();
-        const logoName = document.querySelector('.logo span');
+        const logoName = document.getElementById('bizNameSidebar');
         const logoImg = document.querySelector('.logo img.logo-icon');
+        const bizName = settings.negocio?.nombre || 'PRO POS';
 
         if (logoName) {
-            logoName.textContent = settings.negocio.nombre;
+            logoName.textContent = bizName;
         }
 
-        if (logoImg && settings.negocio.logo) {
+        if (logoImg && settings.negocio?.logo) {
             logoImg.src = settings.negocio.logo;
         }
+
+        // Update page title
+        document.title = `${bizName} POS - Punto de Venta Premium`;
     }
 
     bindEvents() {

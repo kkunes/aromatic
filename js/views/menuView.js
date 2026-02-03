@@ -294,15 +294,18 @@ const menuView = {
         const headerColor = theme.primaryColor;
         const accentColor = theme.secondaryColor;
 
+        const settings = db.getSettings();
+        const biz = settings.negocio || { nombre: 'Nuestra Carta', eslogan: 'Sabor con Alma & Corazón', logo: 'recursos/logo efimero.png' };
+
         return `
-            <div id="printableMenu" style="${styles}">
-                <!-- Header -->
-                <div style="text-align: center; margin-bottom: 50px;">
-                    <img src="recursos/logo efimero.png" style="width: 80px; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.1)); margin-bottom: 15px;">
-                    <h1 style="font-size: 3rem; margin: 0; color: ${headerColor};">Nuestra Carta</h1>
-                    <div style="width: 60px; height: 3px; background: ${accentColor}; margin: 15px auto;"></div>
-                    <p style="text-transform: uppercase; letter-spacing: 3px; font-size: 0.8rem; font-weight: 700; opacity: 0.6;">Sabor con Alma & Corazón</p>
-                </div>
+                <div id="printableMenu" style="${styles}">
+                    <!-- Header -->
+                    <div style="text-align: center; margin-bottom: 50px;">
+                        <img src="${biz.logo}" style="width: 80px; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.1)); margin-bottom: 15px;">
+                        <h1 style="font-size: 3rem; margin: 0; color: ${headerColor};">${biz.nombre}</h1>
+                        <div style="width: 60px; height: 3px; background: ${accentColor}; margin: 15px auto;"></div>
+                        <p style="text-transform: uppercase; letter-spacing: 3px; font-size: 0.8rem; font-weight: 700; opacity: 0.6;">${biz.eslogan}</p>
+                    </div>
 
                 <!-- Product Groups -->
                 ${this.categories.map(cat => {
@@ -359,7 +362,7 @@ const menuView = {
 
                 <!-- Footer -->
                 <div style="text-align: center; margin-top: 60px; padding-top: 30px; border-top: 1px dashed #eee;">
-                    <p style="font-size: 0.8rem; color: #94a3b8;">Los precios ya incluyen IVA. • Disfruta tu momento Aromatic.</p>
+                    <p style="font-size: 0.8rem; color: #94a3b8;">Los precios ya incluyen IVA. • Disfruta tu momento ${settings.negocio.nombre}.</p>
                 </div>
             </div>
         `;
@@ -384,7 +387,7 @@ const menuView = {
         const canvas = document.querySelector('#menuQRCode canvas');
         if (canvas) {
             const link = document.createElement('a');
-            link.download = 'QR-Menu-Aromatic.png';
+            link.download = `QR-Menu-${settings.negocio.nombre}.png`;
             link.href = canvas.toDataURL();
             link.click();
         }
@@ -408,7 +411,7 @@ const menuView = {
 
         const opt = {
             margin: 0,
-            filename: 'Menu-Aromatic.pdf',
+            filename: `Menu-${settings.negocio.nombre}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { scale: 2, useCORS: true },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }

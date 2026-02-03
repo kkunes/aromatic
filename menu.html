@@ -255,6 +255,7 @@
                 const configSnap = await db.collection('menu_config').get();
                 const productsSnap = await db.collection('productos').get();
                 const categoriesSnap = await db.collection('categorias').get();
+                const settingsSnap = await db.collection('settings').get();
 
                 if (configSnap.empty) {
                     renderError("Menú no configurado. Por favor, realiza cambios en el sistema y guarda la configuración.");
@@ -264,22 +265,24 @@
                 const config = configSnap.docs[0].data();
                 const products = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 const categories = categoriesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const settings = settingsSnap.empty ? { negocio: { nombre: 'Nuestra Carta', eslogan: 'Sabor con Alma & Corazón', logo: 'recursos/logo efimero.png' } } : settingsSnap.docs[0].data();
 
-                renderMenu(config, products, categories);
+                renderMenu(config, products, categories, settings);
 
             } catch (err) {
                 console.error(err);
                 // Fallback to localStorage if possible (for quick testing)
                 const localConfig = localStorage.getItem('aromatic_menu_config');
+                const localSettings = JSON.parse(localStorage.getItem('aromatic_settings') || '{}');
                 if (localConfig) {
-                    renderMenu(JSON.parse(localConfig), [], []);
+                    renderMenu(JSON.parse(localConfig), [], [], localSettings);
                 } else {
                     renderError("Hubo un problema al cargar el menú digital. Revisa tu conexión.");
                 }
             }
         }
 
-        function renderMenu(config, products, categories) {
+        function renderMenu(config, products, categories, settings) {
             // Update UI Theme
             document.documentElement.style.setProperty('--primary', config.theme.primaryColor);
             document.documentElement.style.setProperty('--accent', config.theme.secondaryColor);
@@ -287,6 +290,9 @@
             document.documentElement.style.setProperty('--text', config.theme.textColor);
             document.documentElement.style.setProperty('--font', config.theme.fontFamily);
             document.body.style.backgroundColor = config.theme.backgroundColor;
+
+            const biz = settings.negocio || { nombre: 'Nuestra Carta', eslogan: 'Sabor con Alma & Corazón', logo: 'recursos/logo efimero.png' };
+            document.title = `${biz.nombre} - Menú Digital`;
 
             const included = products.filter(p => config.includedProducts.includes(p.id));
             const groups = {};
@@ -297,10 +303,10 @@
 
             let html = `
                 <div class="header">
-                    <img src="recursos/logo efimero.png" class="logo">
-                    <h1 class="title">Nuestra Carta</h1>
+                    <img src="${biz.logo}" class="logo">
+                    <h1 class="title">${biz.nombre}</h1>
                     <div class="divider"></div>
-                    <p class="subtitle">Sabor con Alma & Corazón</p>
+                    <p class="subtitle">${biz.eslogan}</p>
                 </div>
             `;
 
@@ -355,7 +361,7 @@
             html += `
                 <div style="text-align: center; margin-top: 80px; padding-top: 40px; border-top: 1px dashed rgba(0,0,0,0.1); opacity: 0.5;">
                     <p style="font-size: 0.9rem;">Precios sujetos a cambios sin previo aviso. • IVA incluido.</p>
-                    <p style="font-size: 0.8rem; font-weight: 700; margin-top: 10px;">Aromatic POS Premium Experience</p>
+                    <p style="font-size: 0.8rem; font-weight: 700; margin-top: 10px;">${biz.nombre} POS Premium Experience</p>
                 </div>
             `;
 
@@ -366,7 +372,7 @@
         function renderError(msg) {
             document.getElementById('menu-content').innerHTML = `
                 <div style="text-align:center; padding: 100px 20px;">
-                    <h2 style="font-family:'Playfair Display', serif;">Aromatic POS</h2>
+                    <h2 style="font-family:'Playfair Display', serif;">${document.title.split(' - ')[0]}</h2>
                     <p>${msg}</p>
                     <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px; border-radius: 10px; border: none; background: var(--primary); color: white; font-weight: 700;">REINTENTAR</button>
                 </div>

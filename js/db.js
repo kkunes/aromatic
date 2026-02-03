@@ -421,6 +421,9 @@ const db = {
                 mostrarRFC: true,
                 mostrarNotas: true,
                 mostrarExtras: true,
+                mostrarQR: false,
+                contenidoQR: 'https://aromatic.pos',
+                mensajeQR: '¡Síguenos en nuestras redes!',
                 tamanoFuente: 12,
                 anchoPapel: 58 // mm
             },

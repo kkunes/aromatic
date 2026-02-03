@@ -105,12 +105,41 @@ const ticketView = {
                         <div style="margin-bottom: 10px; padding: 5px; border: 1px solid #000; border-radius: 4px;">
                             <p style="margin: 0; font-size: 0.85em; font-weight: bold;">CLIENTE: ${venta.cliente.nombre}</p>
                             <p style="margin: 2px 0; font-size: 0.8em;">Puntos acumulados: ${venta.cliente.puntos || 0}</p>
-                            <p style="margin: 0; font-size: 0.75em; font-style: italic;">¡Gracias por ser cliente Aromatic!</p>
+                            <p style="margin: 0; font-size: 0.75em; font-style: italic;">¡Gracias por ser cliente ${settings.negocio.nombre}!</p>
                         </div>
                     ` : ''}
+
                     <p style="margin: 5px 0; font-weight: bold; font-size: 1em; color: #000;">${settings.negocio.mensajeTicket}</p>
-                    <p style="margin: 5px 0; font-size: 0.85em; color: #000;">Método de Pago: ${venta.metodoPago}</p>
-                    <p style="margin: 10px 0 0; font-size: 0.75em; color: #000;">--- Aromatic POS ---</p>
+                    
+                    ${(() => {
+                if (config.mostrarQR && config.contenidoQR) {
+                    // Generar QR de forma síncrona usando el canvas de qrcode.js
+                    const div = document.createElement('div');
+                    new QRCode(div, {
+                        text: config.contenidoQR,
+                        width: 128,
+                        height: 128,
+                        colorDark: "#000000",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+                    const canvas = div.querySelector('canvas');
+                    const qrDataURL = canvas ? canvas.toDataURL() : '';
+
+                    return `
+                                <div style="margin-top: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                                    ${config.mensajeQR ? `<p style="margin: 0 0 5px 0; font-size: 0.85em; font-weight: 800; color: #000; text-transform: uppercase;">${config.mensajeQR}</p>` : ''}
+                                    <div style="padding: 5px; background: white; border: 1px solid #000;">
+                                        <img src="${qrDataURL}" style="width: 85px; height: 85px; display: block;">
+                                    </div>
+                                </div>
+                            `;
+                }
+                return '';
+            })()}
+
+                    <p style="margin: 10px 0 0; font-size: 0.85em; color: #000;">Método de Pago: ${venta.metodoPago}</p>
+                    <p style="margin: 10px 0 0; font-size: 0.75em; color: #000;">--- ${settings.negocio.nombre} POS ---</p>
                 </div>
             </div>
         `;
