@@ -60,6 +60,28 @@ const db = {
         }
     },
 
+    async setCollection(name, data) {
+        const settings = this.getSettings();
+        if (settings.databaseConfig?.modoLocal || !this.firestore) {
+            return this.setLocalCollection(name, data);
+        }
+        // For Firestore, this is trickier as we usually don't wipe collections
+        // But for config collections, we can just use a fixed ID document or similar
+        // For simplicity in this menu case, let's treat it as a collection where we update/add
+        const batch = this.firestore.batch();
+        // Clear existing (simplified approach)
+        const snapshot = await this.firestore.collection(name).get();
+        snapshot.docs.forEach(doc => batch.delete(doc.ref));
+
+        // Add new items
+        data.forEach(item => {
+            const ref = this.firestore.collection(name).doc(item.id || undefined);
+            batch.set(ref, item);
+        });
+
+        return batch.commit();
+    },
+
     async getActivePromotions() {
         const settings = this.getSettings();
         if (!settings.promociones?.activo) return [];

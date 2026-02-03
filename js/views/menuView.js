@@ -137,7 +137,14 @@ const menuView = {
                         <div id="tab-qr" class="menu-tab-content hidden" style="text-align: center; padding: 40px;">
                             <div style="max-width: 400px; margin: 0 auto; background: #f8fafc; padding: 40px; border-radius: 32px; border: 1px solid #e2e8f0;">
                                 <h3 style="font-family: 'Playfair Display', serif; margin-bottom: 10px;">Tu Menú Digital en Mesa</h3>
-                                <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 30px;">Escanea para ver el menú en tiempo real</p>
+                                <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 20px;">Escanea para ver el menú en tiempo real</p>
+                                
+                                <div class="input-group" style="text-align: left; margin-bottom: 25px;">
+                                    <label style="font-size: 0.75rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px; display: block;">Enlace Público del Menú (GitHub Pages)</label>
+                                    <input type="url" id="menuPublicUrlInput" value="${this.menuConfig.publicUrl}" placeholder="https://tu-usuario.github.io/tu-repo/menu.html" 
+                                        oninput="menuView.updateConfig('publicUrl', this.value); menuView.renderQR();"
+                                        style="width: 100%; padding: 12px; border-radius: 12px; border: 1.5px solid #e2e8f0; font-size: 0.85rem; outline: none; transition: border-color 0.2s;">
+                                </div>
                                 
                                 <div id="menuQRCode" style="display: inline-block; padding: 20px; background: white; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); margin-bottom: 30px;"></div>
                                 
@@ -181,9 +188,13 @@ const menuView = {
         }
     },
 
-    saveConfig() {
+    async saveConfig() {
         localStorage.setItem('aromatic_menu_config', JSON.stringify(this.menuConfig));
-        app.showToast('Configuración del menú guardada', 'success');
+
+        // Save to DB (Firestore or LocalDB)
+        await db.setCollection('menu_config', [this.menuConfig]);
+
+        app.showToast('Configuración del menú guardada y sincronizada', 'success');
         if (typeof audioService !== 'undefined') audioService.playSuccess();
     },
 

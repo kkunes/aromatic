@@ -9,6 +9,11 @@
         href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Playfair+Display:wght@400;700&display=swap"
         rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+
     <style>
         :root {
             --primary: #4b3621;
@@ -24,6 +29,7 @@
             color: var(--text);
             font-family: 'Outfit', sans-serif;
             line-height: 1.6;
+            transition: background 0.5s ease;
         }
 
         .container {
@@ -35,11 +41,22 @@
         .header {
             text-align: center;
             margin-bottom: 60px;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeIn 0.8s forwards;
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .logo {
             width: 80px;
             margin-bottom: 20px;
+            filter: drop-shadow(0 5px 15px rgba(0, 0, 0, 0.1));
         }
 
         .title {
@@ -68,7 +85,7 @@
             font-family: var(--font);
             font-size: 2rem;
             color: var(--primary);
-            border-bottom: 2px solid #eee;
+            border-bottom: 2px solid rgba(0, 0, 0, 0.05);
             padding-bottom: 15px;
             margin: 50px 0 30px;
             display: flex;
@@ -92,11 +109,14 @@
             border-radius: 24px;
             overflow: hidden;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-            transition: transform 0.3s;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            opacity: 0;
+            animation: fadeIn 0.5s forwards;
         }
 
         .card:hover {
-            transform: translateY(-5px);
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
         }
 
         .card-img {
@@ -139,6 +159,8 @@
             justify-content: space-between;
             align-items: flex-end;
             margin-bottom: 25px;
+            opacity: 0;
+            animation: fadeIn 0.5s forwards;
         }
 
         .list-info {
@@ -146,7 +168,7 @@
         }
 
         .list-dots {
-            border-bottom: 2px dotted #ddd;
+            border-bottom: 2px dotted rgba(0, 0, 0, 0.1);
             flex: 1;
             margin: 0 15px 8px 15px;
         }
@@ -161,6 +183,32 @@
             text-transform: uppercase;
             margin-left: 10px;
             vertical-align: middle;
+            box-shadow: 0 4px 8px rgba(226, 150, 93, 0.3);
+        }
+
+        .loader {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 60vh;
+            color: var(--primary);
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(75, 54, 33, 0.1);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         @media (max-width: 600px) {
@@ -171,41 +219,74 @@
             .grid {
                 grid-template-columns: 1fr;
             }
+
+            .container {
+                padding-top: 20px;
+            }
         }
     </style>
 </head>
 
 <body>
     <div class="container" id="menu-content">
-        <!-- Content will be loaded from localStorage -->
+        <div class="loader">
+            <div class="spinner"></div>
+            <p style="font-weight: 600; font-family: 'Outfit', sans-serif;">Preparando delicias...</p>
+        </div>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const configStr = localStorage.getItem('aromatic_menu_config');
-            const productsStr = localStorage.getItem('mock_productos'); // Fallback to mock for local dev
-            const categoriesStr = localStorage.getItem('mock_categorias');
+        // Use the config from firebase-config.js (inline here as it's a stand-alone page)
+        const firebaseConfig = {
+            apiKey: "AIzaSyAZtdsNHHChRhjSzh0DpH3IJkl1xfQZXqw",
+            authDomain: "pos-cafeteria-8a905.firebaseapp.com",
+            projectId: "pos-cafeteria-8a905",
+            storageBucket: "pos-cafeteria-8a905.firebasestorage.app",
+            messagingSenderId: "200789628092",
+            appId: "1:200789628092:web:d5922ad084ecd74793acb9"
+        };
 
-            if (!configStr || !productsStr) {
-                document.getElementById('menu-content').innerHTML = `
-                    <div style="text-align:center; padding: 100px 20px;">
-                        <h2 style="font-family:'Playfair Display', serif;">Menú no configurado</h2>
-                        <p>Por favor, configura el menú desde el sistema administrativo.</p>
-                    </div>
-                `;
-                return;
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        async function loadMenu() {
+            try {
+                // Fetch Data from Firestore
+                const configSnap = await db.collection('menu_config').get();
+                const productsSnap = await db.collection('productos').get();
+                const categoriesSnap = await db.collection('categorias').get();
+
+                if (configSnap.empty) {
+                    renderError("Menú no configurado. Por favor, realiza cambios en el sistema y guarda la configuración.");
+                    return;
+                }
+
+                const config = configSnap.docs[0].data();
+                const products = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const categories = categoriesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                renderMenu(config, products, categories);
+
+            } catch (err) {
+                console.error(err);
+                // Fallback to localStorage if possible (for quick testing)
+                const localConfig = localStorage.getItem('aromatic_menu_config');
+                if (localConfig) {
+                    renderMenu(JSON.parse(localConfig), [], []);
+                } else {
+                    renderError("Hubo un problema al cargar el menú digital. Revisa tu conexión.");
+                }
             }
+        }
 
-            const config = JSON.parse(configStr);
-            const products = JSON.parse(productsStr);
-            const categories = JSON.parse(categoriesStr);
-
-            // Update CSS variables from config
+        function renderMenu(config, products, categories) {
+            // Update UI Theme
             document.documentElement.style.setProperty('--primary', config.theme.primaryColor);
             document.documentElement.style.setProperty('--accent', config.theme.secondaryColor);
             document.documentElement.style.setProperty('--bg', config.theme.backgroundColor);
             document.documentElement.style.setProperty('--text', config.theme.textColor);
             document.documentElement.style.setProperty('--font', config.theme.fontFamily);
+            document.body.style.backgroundColor = config.theme.backgroundColor;
 
             const included = products.filter(p => config.includedProducts.includes(p.id));
             const groups = {};
@@ -223,7 +304,7 @@
                 </div>
             `;
 
-            categories.forEach(cat => {
+            categories.sort((a, b) => (a.orden || 0) - (b.orden || 0)).forEach(cat => {
                 const group = groups[cat.nombre];
                 if (!group || group.length === 0) return;
 
@@ -236,17 +317,17 @@
 
                 if (config.theme.layout === 'modern') {
                     html += `<div class="grid">`;
-                    group.forEach(p => {
+                    group.forEach((p, i) => {
                         const isFeatured = config.featuredProducts.includes(p.id);
                         html += `
-                            <div class="card">
+                            <div class="card" style="animation-delay: ${i * 0.1}s">
                                 ${config.showImages ? `<img src="${p.imagen}" class="card-img" onerror="this.src='https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=500'">` : ''}
                                 <div class="card-body">
                                     <div class="card-header">
-                                        <span class="name">${p.name || p.nombre} ${isFeatured ? '<span class="featured-badge">Top</span>' : ''}</span>
+                                        <span class="name">${p.nombre} ${isFeatured ? '<span class="featured-badge">Top</span>' : ''}</span>
                                         <span class="price">$${p.precio.toFixed(2)}</span>
                                     </div>
-                                    ${config.showDescriptions ? `<p class="desc">Preparado de forma artesanal con los mejores ingredientes de nuestra barra.</p>` : ''}
+                                    ${config.showDescriptions ? `<p class="desc">${p.descripcion || 'Una experiencia artesanal única preparada al momento.'}</p>` : ''}
                                 </div>
                             </div>
                         `;
@@ -254,13 +335,13 @@
                     html += `</div>`;
                 } else {
                     html += `<div>`;
-                    group.forEach(p => {
+                    group.forEach((p, i) => {
                         const isFeatured = config.featuredProducts.includes(p.id);
                         html += `
-                            <div class="list-item">
+                            <div class="list-item" style="animation-delay: ${i * 0.05}s">
                                 <div class="list-info">
-                                    <div class="name">${p.name || p.nombre} ${isFeatured ? '<span class="featured-badge">Top</span>' : ''}</div>
-                                    ${config.showDescriptions ? `<p class="desc">Nuestra receta estrella de la casa.</p>` : ''}
+                                    <div class="name">${p.nombre} ${isFeatured ? '<span class="featured-badge">Top</span>' : ''}</div>
+                                    ${config.showDescriptions ? `<p class="desc">${p.descripcion || 'Especialidad de la casa.'}</p>` : ''}
                                 </div>
                                 <div class="list-dots"></div>
                                 <div class="price">$${p.precio.toFixed(2)}</div>
@@ -272,15 +353,27 @@
             });
 
             html += `
-                <div style="text-align: center; margin-top: 80px; padding-top: 40px; border-top: 1px dashed #ddd; opacity: 0.5;">
+                <div style="text-align: center; margin-top: 80px; padding-top: 40px; border-top: 1px dashed rgba(0,0,0,0.1); opacity: 0.5;">
                     <p style="font-size: 0.9rem;">Precios sujetos a cambios sin previo aviso. • IVA incluido.</p>
-                    <p style="font-size: 0.8rem; font-weight: 700;">Aromatic POS Premium Experience</p>
+                    <p style="font-size: 0.8rem; font-weight: 700; margin-top: 10px;">Aromatic POS Premium Experience</p>
                 </div>
             `;
 
             document.getElementById('menu-content').innerHTML = html;
             lucide.createIcons();
-        });
+        }
+
+        function renderError(msg) {
+            document.getElementById('menu-content').innerHTML = `
+                <div style="text-align:center; padding: 100px 20px;">
+                    <h2 style="font-family:'Playfair Display', serif;">Aromatic POS</h2>
+                    <p>${msg}</p>
+                    <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px; border-radius: 10px; border: none; background: var(--primary); color: white; font-weight: 700;">REINTENTAR</button>
+                </div>
+            `;
+        }
+
+        loadMenu();
     </script>
 </body>
 
