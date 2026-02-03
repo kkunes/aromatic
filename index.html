@@ -74,6 +74,14 @@
                     <i data-lucide="bar-chart-3"></i>
                     <span>Ventas</span>
                 </li>
+                <li data-view="analytics">
+                    <i data-lucide="line-chart"></i>
+                    <span>Inteligencia</span>
+                </li>
+                <li data-view="prediction">
+                    <i data-lucide="sparkles"></i>
+                    <span>Planeación</span>
+                </li>
                 <li data-view="cash-closing">
                     <i data-lucide="calculator"></i>
                     <span>Corte de Caja</span>
@@ -81,6 +89,10 @@
                 <li data-view="settings">
                     <i data-lucide="settings"></i>
                     <span>Configuración</span>
+                </li>
+                <li data-view="menu">
+                    <i data-lucide="book-open"></i>
+                    <span>Menú Digital</span>
                 </li>
             </ul>
             <div class="sidebar-footer">
@@ -257,12 +269,19 @@
     <script src="js/views/customers.js"></script>
     <script src="js/views/supplies.js"></script>
     <script src="js/views/sales.js"></script>
+    <script src="js/views/analytics.js"></script>
+    <script src="js/views/predictions.js"></script>
     <script src="js/views/cashClosing.js"></script>
     <script src="js/views/settings.js"></script>
     <script src="js/views/ticket.js"></script>
     <script src="js/views/tables.js"></script>
     <script src="js/views/users.js"></script>
+    <script src="js/views/menuView.js"></script>
     <script src="js/app.js"></script>
+
+    <!-- PDF & QR Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
         // Initialize Lucide icons
         lucide.createIcons();

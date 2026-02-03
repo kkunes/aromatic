@@ -192,6 +192,58 @@ const settingsView = {
                         </button>
                     </div>
 
+                    <!-- Database Engine Selector -->
+                    <div class="card" style="padding: 30px; grid-column: span 2; border: 2px solid ${settings.databaseConfig?.modoLocal ? 'var(--accent)' : '#eee'};">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div style="width: 42px; height: 42px; background: ${settings.databaseConfig?.modoLocal ? 'var(--accent-light)' : '#f1f5f9'}; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: ${settings.databaseConfig?.modoLocal ? 'var(--accent)' : 'var(--primary)'};">
+                                    <i data-lucide="database" style="width: 24px;"></i>
+                                </div>
+                                <div>
+                                    <h2 style="margin: 0; font-size: 1.4rem;">Origen de Datos (Motor DB)</h2>
+                                    <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted);">Define dónde se guarda la información de tu negocio</p>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 12px; background: #f8fafc; padding: 10px 20px; border-radius: 16px;">
+                                <span style="font-weight: 700; font-size: 0.85rem; color: ${settings.databaseConfig?.modoLocal ? 'var(--accent)' : 'var(--primary)'}">
+                                    ${settings.databaseConfig?.modoLocal ? 'MODO LOCAL ACTIVO' : 'MODO NUBE (FIREBASE)'}
+                                </span>
+                                <label class="switch">
+                                    <input type="checkbox" id="dbModeToggle" ${settings.databaseConfig?.modoLocal ? 'checked' : ''}>
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+                            <div style="padding: 20px; background: #f8fafc; border-radius: 20px; border: 1px solid #e2e8f0;">
+                                <h4 style="margin: 0 0 10px 0; color: var(--primary);"><i data-lucide="cloud-off" style="width: 16px; margin-right: 5px;"></i> Ventajas del Modo Local</h4>
+                                <ul style="margin: 0; padding-left: 20px; font-size: 0.85rem; color: #64748b; line-height: 1.6;">
+                                    <li>Funciona 100% sin internet permanentemente.</li>
+                                    <li>Datos almacenados en este navegador (IndexedDB).</li>
+                                    <li>Gratis de por vida, sin depender de Firebase.</li>
+                                    <li>Máxima velocidad de respuesta.</li>
+                                </ul>
+                            </div>
+                            <div style="padding: 20px; background: #f0f9ff; border-radius: 20px; border: 1px solid #bae6fd; grid-column: span 2;">
+                                <h4 style="margin: 0 0 10px 0; color: #0369a1;"><i data-lucide="refresh-cw" style="width: 16px; margin-right: 5px;"></i> Herramientas de Sincronización Bi-direccional</h4>
+                                <p style="margin: 0 0 20px 0; font-size: 0.85rem; color: #0e7490;">Mueve tu información entre la nube y esta computadora para mantener respaldos actualizados en ambos lados.</p>
+                                
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                    <button class="btn-primary" id="btnSyncCloudToLocal" style="width: 100%; background: #0369a1; border: none; padding: 15px; border-radius: 14px; font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                                        <i data-lucide="download-cloud"></i> BAJAR DE NUBE A LOCAL
+                                    </button>
+                                    <button class="btn-primary" id="btnSyncLocalToCloud" style="width: 100%; background: var(--primary); border: none; padding: 15px; border-radius: 14px; font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                                        <i data-lucide="upload-cloud"></i> SUBIR DE LOCAL A NUBE
+                                    </button>
+                                </div>
+                                <p style="margin-top: 15px; font-size: 0.75rem; color: #64748b; text-align: center; font-style: italic;">
+                                    Nota: Subir a la nube reemplazará los datos actuales en Firebase con lo que tienes en esta computadora.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         `;
@@ -640,6 +692,11 @@ const settingsView = {
     },
 
     async deleteUser(id) {
+        const currentUser = db.getCurrentUser();
+        if (currentUser.rol !== 'admin') {
+            return alert('No tienes permisos para eliminar usuarios.');
+        }
+
         if (id === 'U1') return; // Protect original admin
         const u = this.usuarios.find(user => user.id === id);
         if (confirm(`¿Eliminar al usuario "${u?.nombre}" definitivamente?`)) {
@@ -720,7 +777,7 @@ const settingsView = {
                     const currentSettings = db.getSettings();
                     const folioInicioInput = parseInt(document.getElementById('folioInicio').value) || 1;
                     const folioActualInput = parseInt(document.getElementById('folioActual').value) || folioInicioInput;
-                    
+
                     const newSettings = {
                         ...currentSettings,
                         manejarIVA: toggleIVA.checked,
@@ -858,6 +915,101 @@ const settingsView = {
                     db.saveSettings(newSettings);
                     this.showToast('Configuración de lealtad guardada');
                     this.switchSubView('menu');
+                };
+            }
+        }
+
+        if (this.activeSubView === 'maintenance') {
+            const dbToggle = document.getElementById('dbModeToggle');
+            const syncBtn = document.getElementById('btnSyncCloudToLocal');
+
+            if (dbToggle) {
+                dbToggle.onchange = (e) => {
+                    const settings = db.getSettings();
+                    settings.databaseConfig = { modoLocal: e.target.checked };
+                    db.saveSettings(settings);
+                    app.showToast(e.target.checked ? 'Modo Local Activado' : 'Modo Nube Activado');
+                    setTimeout(() => location.reload(), 1000);
+                };
+            }
+
+            if (syncBtn) {
+                syncBtn.onclick = async () => {
+                    if (confirm('¿Descargar todos los datos de Firebase y guardarlos en la base de datos local de este navegador? Esto no borrará nada de la nube.')) {
+                        syncBtn.disabled = true;
+                        const originalText = syncBtn.innerHTML;
+                        syncBtn.innerHTML = '<i data-lucide="refresh-cw" class="spin"></i> SINCRONIZANDO...';
+                        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+                        try {
+                            const settings = db.getSettings();
+                            const originalMode = settings.databaseConfig.modoLocal;
+                            settings.databaseConfig.modoLocal = false;
+
+                            const collections = ['productos', 'insumos', 'categorias', 'ventas', 'clientes', 'mesas', 'mermas', 'usuarios', 'audit_logs'];
+                            for (const col of collections) {
+                                const data = await db.getCollection(col);
+                                await db.setLocalCollection(col, data);
+                            }
+
+                            settings.databaseConfig.modoLocal = originalMode;
+                            db.saveSettings(settings);
+                            app.showToast('¡Descarga completa! Datos sincronizados en local.', 'success');
+                        } catch (e) {
+                            console.error(e);
+                            app.showToast('Error al descargar datos', 'danger');
+                        } finally {
+                            syncBtn.disabled = false;
+                            syncBtn.innerHTML = originalText;
+                            if (typeof lucide !== 'undefined') lucide.createIcons();
+                        }
+                    }
+                };
+            }
+
+            const uploadBtn = document.getElementById('btnSyncLocalToCloud');
+            if (uploadBtn) {
+                uploadBtn.onclick = async () => {
+                    if (!db.firestore) {
+                        return alert('No hay conexión con Firebase configurada.');
+                    }
+                    if (confirm('¿SUBIR todos tus datos locales a la NUBE? ADVERTENCIA: Esto sobrescribirá las colecciones en Firebase con tu información local.')) {
+                        uploadBtn.disabled = true;
+                        const originalText = uploadBtn.innerHTML;
+                        uploadBtn.innerHTML = '<i data-lucide="refresh-cw" class="spin"></i> SUBIENDO...';
+                        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+                        try {
+                            const collections = ['productos', 'insumos', 'categorias', 'ventas', 'clientes', 'mesas', 'mermas', 'usuarios', 'audit_logs'];
+                            for (const col of collections) {
+                                const localData = await db.getLocalCollection(col);
+
+                                // Clean Firebase collection first (simple approach: delete and add)
+                                // Note: In production, batching is better but for portability this works
+                                const snapshot = await db.firestore.collection(col).get();
+                                const deletePromises = snapshot.docs.map(doc => doc.ref.delete());
+                                await Promise.all(deletePromises);
+
+                                // Upload local items
+                                const uploadPromises = localData.map(item => {
+                                    const { id, ...cleanData } = item;
+                                    return db.firestore.collection(col).add({
+                                        ...cleanData,
+                                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                                    });
+                                });
+                                await Promise.all(uploadPromises);
+                            }
+                            app.showToast('¡Carga exitosa! Firebase ahora tiene tus datos locales.', 'success');
+                        } catch (e) {
+                            console.error(e);
+                            app.showToast('Error al subir datos a la nube', 'danger');
+                        } finally {
+                            uploadBtn.disabled = false;
+                            uploadBtn.innerHTML = originalText;
+                            if (typeof lucide !== 'undefined') lucide.createIcons();
+                        }
+                    }
                 };
             }
         }

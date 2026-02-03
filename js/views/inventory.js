@@ -34,7 +34,7 @@ const inventoryView = {
                     </div>
                 </div>
                 
-                <div class="table-container hide-scrollbar" style="flex: 1; overflow-y: auto; margin-top: 0;">
+                <div id="inventory-table-container" class="table-container hide-scrollbar" style="flex: 1; overflow-y: auto; margin-top: 0;">
                     <table class="modern-table">
                         <thead style="position: sticky; top: 0; background: white; z-index: 10;">
                             <tr>
@@ -105,13 +105,88 @@ const inventoryView = {
     },
 
     async refreshGrid() {
-        const container = document.getElementById('view-container');
-        if (this.app && this.app.currentView === 'inventory') {
-            const html = await this.render();
-            container.innerHTML = `<div class="view-enter">${html}</div>`;
-            container.scrollTop = 0; // Reset scroll to top
+        const resultsContainer = document.getElementById('inventory-table-container');
+        if (resultsContainer) {
+            this.productos = await db.getCollection('productos');
+            this.insumos = await db.getCollection('insumos');
+            this.categorias = await db.getCollection('categorias');
+
+            const filtered = this.productos.filter(p =>
+                p.nombre.toLowerCase().includes((this.filterQuery || '').toLowerCase()) ||
+                p.categoria.toLowerCase().includes((this.filterQuery || '').toLowerCase())
+            );
+
+            resultsContainer.innerHTML = `
+                <table class="modern-table">
+                    <thead style="position: sticky; top: 0; background: white; z-index: 10;">
+                        <tr>
+                            <th>Producto</th>
+                            <th>Categoría</th>
+                            <th>Precio Venta</th>
+                            <th>Costo / Margen</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filtered.map(p => {
+                const costo = this.calculateCost(p);
+                const margen = p.precio - costo;
+                const margenPercent = p.precio > 0 ? (margen / p.precio) * 100 : 0;
+                const tieneReceta = p.insumos && p.insumos.length > 0;
+
+                return `
+                                <tr>
+                                    <td>
+                                        <div class="table-product">
+                                            <img src="${p.imagen || 'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?w=200&h=200&fit=crop'}" class="table-thumb" loading="lazy">
+                                            <div style="display: flex; flex-direction: column;">
+                                                <span style="font-weight: 600;">${p.nombre}</span>
+                                                ${!tieneReceta ? '<small style="color: #f59e0b; font-size: 0.75rem;">Sin receta</small>' : ''}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge" style="background: ${this.getCategoryColor(p.categoria, 0.1)}; color: ${this.getCategoryColor(p.categoria, 1)};">
+                                            ${p.categoria}
+                                        </span>
+                                    </td>
+                                    <td style="font-weight: 700;">$${p.precio.toFixed(2)}</td>
+                                    <td>
+                                        ${tieneReceta ? `
+                                            <div style="display: flex; flex-direction: column; font-size: 0.85rem;">
+                                                <span style="color: var(--text-muted);">Costo: $${costo.toFixed(2)}</span>
+                                                <span style="color: ${margen > 0 ? 'var(--success)' : 'var(--danger)'}; font-weight: 600;">
+                                                    Margen: ${margenPercent.toFixed(0)}% ($${margen.toFixed(2)})
+                                                </span>
+                                            </div>
+                                        ` : '<span style="color: #cbd5e1;">-</span>'}
+                                    </td>
+                                    <td>
+                                        <div style="display: flex; gap: 8px;">
+                                            <button class="btn-icon-small" onclick="inventoryView.editProducto('${p.id}')">
+                                                <i data-lucide="edit-2"></i>
+                                            </button>
+                                            <button class="btn-icon-small danger" onclick="inventoryView.deleteProducto('${p.id}')">
+                                                <i data-lucide="trash-2"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `;
+            }).join('')}
+                    </tbody>
+                </table>
+            `;
             if (typeof lucide !== 'undefined') lucide.createIcons();
-            this.bindEvents(this.app);
+        } else {
+            const container = document.getElementById('view-container');
+            if (this.app && this.app.currentView === 'inventory') {
+                const html = await this.render();
+                container.innerHTML = `<div class="view-enter">${html}</div>`;
+                container.scrollTop = 0;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                this.bindEvents(this.app);
+            }
         }
     },
 
@@ -465,6 +540,11 @@ const inventoryView = {
     },
 
     async deleteProducto(id) {
+        const currentUser = db.getCurrentUser();
+        if (currentUser.rol !== 'admin') {
+            return alert('Solo el administrador puede eliminar productos del catálogo.');
+        }
+
         const prod = this.productos.find(p => p.id === id);
         if (confirm(`¿Estás seguro de que deseas eliminar "${prod?.nombre}"?`)) {
             await db.deleteDocument('productos', id);

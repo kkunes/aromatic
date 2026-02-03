@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menú Aromatic - Nuestra Carta Digital</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Playfair+Display:wght@400;700&display=swap"
+        rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --primary: #4b3621;
+            --accent: #e2965d;
+            --bg: #fdfaf6;
+            --text: #2d231a;
+            --font: 'Playfair Display', serif;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Outfit', sans-serif;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .logo {
+            width: 80px;
+            margin-bottom: 20px;
+        }
+
+        .title {
+            font-family: var(--font);
+            font-size: 3rem;
+            margin: 0;
+            color: var(--primary);
+        }
+
+        .divider {
+            width: 60px;
+            height: 3px;
+            background: var(--accent);
+            margin: 20px auto;
+        }
+
+        .subtitle {
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            opacity: 0.6;
+        }
+
+        .category-title {
+            font-family: var(--font);
+            font-size: 2rem;
+            color: var(--primary);
+            border-bottom: 2px solid #eee;
+            padding-bottom: 15px;
+            margin: 50px 0 30px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .category-title i {
+            color: var(--accent);
+        }
+
+        /* Grid Layout */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+
+        .card-body {
+            padding: 25px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .name {
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+
+        .price {
+            font-weight: 800;
+            color: var(--accent);
+            font-size: 1.2rem;
+        }
+
+        .desc {
+            font-size: 0.9rem;
+            opacity: 0.7;
+            line-height: 1.5;
+        }
+
+        /* List Layout */
+        .list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 25px;
+        }
+
+        .list-info {
+            flex: 1;
+        }
+
+        .list-dots {
+            border-bottom: 2px dotted #ddd;
+            flex: 1;
+            margin: 0 15px 8px 15px;
+        }
+
+        .featured-badge {
+            background: var(--accent);
+            color: white;
+            font-size: 0.65rem;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+
+        @media (max-width: 600px) {
+            .title {
+                font-size: 2.2rem;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container" id="menu-content">
+        <!-- Content will be loaded from localStorage -->
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const configStr = localStorage.getItem('aromatic_menu_config');
+            const productsStr = localStorage.getItem('mock_productos'); // Fallback to mock for local dev
+            const categoriesStr = localStorage.getItem('mock_categorias');
+
+            if (!configStr || !productsStr) {
+                document.getElementById('menu-content').innerHTML = `
+                    <div style="text-align:center; padding: 100px 20px;">
+                        <h2 style="font-family:'Playfair Display', serif;">Menú no configurado</h2>
+                        <p>Por favor, configura el menú desde el sistema administrativo.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const config = JSON.parse(configStr);
+            const products = JSON.parse(productsStr);
+            const categories = JSON.parse(categoriesStr);
+
+            // Update CSS variables from config
+            document.documentElement.style.setProperty('--primary', config.theme.primaryColor);
+            document.documentElement.style.setProperty('--accent', config.theme.secondaryColor);
+            document.documentElement.style.setProperty('--bg', config.theme.backgroundColor);
+            document.documentElement.style.setProperty('--text', config.theme.textColor);
+            document.documentElement.style.setProperty('--font', config.theme.fontFamily);
+
+            const included = products.filter(p => config.includedProducts.includes(p.id));
+            const groups = {};
+            included.forEach(p => {
+                if (!groups[p.categoria]) groups[p.categoria] = [];
+                groups[p.categoria].push(p);
+            });
+
+            let html = `
+                <div class="header">
+                    <img src="recursos/logo efimero.png" class="logo">
+                    <h1 class="title">Nuestra Carta</h1>
+                    <div class="divider"></div>
+                    <p class="subtitle">Sabor con Alma & Corazón</p>
+                </div>
+            `;
+
+            categories.forEach(cat => {
+                const group = groups[cat.nombre];
+                if (!group || group.length === 0) return;
+
+                html += `
+                    <h2 class="category-title">
+                        <i data-lucide="${cat.icono || 'coffee'}"></i>
+                        ${cat.nombre}
+                    </h2>
+                `;
+
+                if (config.theme.layout === 'modern') {
+                    html += `<div class="grid">`;
+                    group.forEach(p => {
+                        const isFeatured = config.featuredProducts.includes(p.id);
+                        html += `
+                            <div class="card">
+                                ${config.showImages ? `<img src="${p.imagen}" class="card-img" onerror="this.src='https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=500'">` : ''}
+                                <div class="card-body">
+                                    <div class="card-header">
+                                        <span class="name">${p.name || p.nombre} ${isFeatured ? '<span class="featured-badge">Top</span>' : ''}</span>
+                                        <span class="price">$${p.precio.toFixed(2)}</span>
+                                    </div>
+                                    ${config.showDescriptions ? `<p class="desc">Preparado de forma artesanal con los mejores ingredientes de nuestra barra.</p>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    html += `</div>`;
+                } else {
+                    html += `<div>`;
+                    group.forEach(p => {
+                        const isFeatured = config.featuredProducts.includes(p.id);
+                        html += `
+                            <div class="list-item">
+                                <div class="list-info">
+                                    <div class="name">${p.name || p.nombre} ${isFeatured ? '<span class="featured-badge">Top</span>' : ''}</div>
+                                    ${config.showDescriptions ? `<p class="desc">Nuestra receta estrella de la casa.</p>` : ''}
+                                </div>
+                                <div class="list-dots"></div>
+                                <div class="price">$${p.precio.toFixed(2)}</div>
+                            </div>
+                        `;
+                    });
+                    html += `</div>`;
+                }
+            });
+
+            html += `
+                <div style="text-align: center; margin-top: 80px; padding-top: 40px; border-top: 1px dashed #ddd; opacity: 0.5;">
+                    <p style="font-size: 0.9rem;">Precios sujetos a cambios sin previo aviso. • IVA incluido.</p>
+                    <p style="font-size: 0.8rem; font-weight: 700;">Aromatic POS Premium Experience</p>
+                </div>
+            `;
+
+            document.getElementById('menu-content').innerHTML = html;
+            lucide.createIcons();
+        });
+    </script>
+</body>
+
+</html>

@@ -113,7 +113,11 @@ const cashClosingView = {
                         <span style="color: #64748b; font-size: 0.9rem; font-weight: 600;">Efectivo en Caja</span>
                         <div id="blindTotal" style="margin-top: 10px;">
                             <span style="font-size: 1.5rem; font-weight: 800; color: #94a3b8; letter-spacing: 2px;">$ • • • • •</span>
-                            <button onclick="cashClosingView.revealTotal(${saldoEsperado})" style="margin-left: 10px; border: none; background: none; color: var(--primary); cursor: pointer; font-size: 0.8rem; font-weight: 700; text-decoration: underline;">MOSTRAR</button>
+                            ${db.getCurrentUser().rol === 'admin' ? `
+                                <button onclick="cashClosingView.revealTotal(${saldoEsperado})" style="margin-left: 10px; border: none; background: none; color: var(--primary); cursor: pointer; font-size: 0.8rem; font-weight: 700; text-decoration: underline;">MOSTRAR</button>
+                            ` : `
+                                <span style="margin-left: 10px; font-size: 0.75rem; color: #cbd5e1; font-weight: 600; font-style: italic;">(Restringido)</span>
+                            `}
                         </div>
                         <i data-lucide="eye-off" style="position: absolute; right: -10px; bottom: -10px; width: 80px; height: 80px; opacity: 0.05; transform: rotate(-15deg);"></i>
                     </div>
@@ -239,6 +243,34 @@ const cashClosingView = {
 
             if (isNaN(monto) || !motivo) return alert('Complete todos los datos');
 
+            // VALIDACIÓN: No permitir retiros mayores al saldo en caja
+            if (userType === 'RETIRO') {
+                const ventas = await db.getCollection('ventas');
+                const movimientos = await db.getCollection('caja_movimientos');
+                const sessionStart = new Date(this.currentSession.fechaApertura);
+
+                const sessionVentas = ventas.filter(v => new Date(v.fecha) >= sessionStart);
+                const sessionMovs = movimientos.filter(m => m.idSesion === this.currentSession.id);
+
+                const ventasEfectivo = sessionVentas
+                    .filter(v => v.metodoPago === 'Efectivo')
+                    .reduce((sum, v) => sum + v.total, 0);
+
+                const ingresos = sessionMovs
+                    .filter(m => m.tipo === 'INGRESO')
+                    .reduce((sum, m) => sum + m.monto, 0);
+
+                const retirosActuales = sessionMovs
+                    .filter(m => m.tipo === 'RETIRO')
+                    .reduce((sum, m) => sum + m.monto, 0);
+
+                const saldoEnCaja = this.currentSession.montoInicial + ventasEfectivo + ingresos - retirosActuales;
+
+                if (monto > saldoEnCaja) {
+                    return alert(`No se puede retirar $${monto.toFixed(2)} porque solo hay $${saldoEnCaja.toFixed(2)} en efectivo en caja.`);
+                }
+            }
+
             await db.addDocument('caja_movimientos', {
                 idSesion: this.currentSession.id,
                 tipo: userType,
@@ -261,6 +293,7 @@ const cashClosingView = {
     },
 
     revealTotal(amount) {
+        if (db.getCurrentUser().rol !== 'admin') return;
         const container = document.getElementById('blindTotal');
         if (container) {
             container.innerHTML = `<h2 style="font-size: 1.8rem; margin: 0; color: #0284c7;">$${amount.toFixed(2)}</h2>`;

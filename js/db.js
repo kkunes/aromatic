@@ -6,9 +6,51 @@
 const db = {
     firestore: typeof firebase !== 'undefined' ? firebase.firestore() : null,
     isMock: false,
+    _localDB: null,
+
+    async initLocalDB() {
+        if (this._localDB) return this._localDB;
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open('AromaticLocalDB', 1);
+            request.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains('collections')) {
+                    db.createObjectStore('collections');
+                }
+            };
+            request.onsuccess = (e) => {
+                this._localDB = e.target.result;
+                resolve(this._localDB);
+            };
+            request.onerror = (e) => reject(e);
+        });
+    },
+
+    async getLocalCollection(name) {
+        const db = await this.initLocalDB();
+        return new Promise((resolve) => {
+            const transaction = db.transaction(['collections'], 'readonly');
+            const store = transaction.objectStore('collections');
+            const request = store.get(name);
+            request.onsuccess = () => resolve(request.result || []);
+            request.onerror = () => resolve([]);
+        });
+    },
+
+    async setLocalCollection(name, data) {
+        const db = await this.initLocalDB();
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(['collections'], 'readwrite');
+            const store = transaction.objectStore('collections');
+            const request = store.put(data, name);
+            request.onsuccess = () => resolve();
+            request.onerror = (e) => reject(e);
+        });
+    },
 
     async getCollection(name) {
-        if (!this.firestore) return this.getMockData(name);
+        const settings = this.getSettings();
+        if (settings.databaseConfig?.modoLocal || !this.firestore) return this.getLocalCollection(name);
         try {
             const snapshot = await this.firestore.collection(name).get();
             return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
@@ -92,7 +134,14 @@ const db = {
 
 
     async addDocument(collection, data) {
-        if (!this.firestore) return this.addMockData(collection, data);
+        const settings = this.getSettings();
+        if (settings.databaseConfig?.modoLocal || !this.firestore) {
+            const current = await this.getLocalCollection(collection);
+            const newItem = { id: Date.now().toString(), ...data, createdAt: new Date().toISOString() };
+            current.push(newItem);
+            await this.setLocalCollection(collection, current);
+            return newItem;
+        }
         return this.firestore.collection(collection).add({
             ...data,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -100,17 +149,16 @@ const db = {
     },
 
     async setDocument(collection, id, data) {
-        if (!this.firestore) {
-            // Mock simulado: add o update
-            const current = this.getMockData(collection);
+        const settings = this.getSettings();
+        if (settings.databaseConfig?.modoLocal || !this.firestore) {
+            const current = await this.getLocalCollection(collection);
             const index = current.findIndex(i => i.id === id);
             if (index >= 0) {
                 current[index] = { ...data, id };
-                this.saveMockData(collection, current);
             } else {
                 current.push({ ...data, id, createdAt: new Date().toISOString() });
-                this.saveMockData(collection, current);
             }
+            await this.setLocalCollection(collection, current);
             return;
         }
         return this.firestore.collection(collection).doc(id).set({
@@ -120,12 +168,27 @@ const db = {
     },
 
     async updateDocument(collection, id, data) {
-        if (!this.firestore) return this.updateMockData(collection, id, data);
+        const settings = this.getSettings();
+        if (settings.databaseConfig?.modoLocal || !this.firestore) {
+            const current = await this.getLocalCollection(collection);
+            const index = current.findIndex(item => item.id === id);
+            if (index !== -1) {
+                current[index] = { ...current[index], ...data };
+                await this.setLocalCollection(collection, current);
+            }
+            return;
+        }
         return this.firestore.collection(collection).doc(id).update(data);
     },
 
     async deleteDocument(collection, id) {
-        if (!this.firestore) return this.deleteMockData(collection, id);
+        const settings = this.getSettings();
+        if (settings.databaseConfig?.modoLocal || !this.firestore) {
+            const current = await this.getLocalCollection(collection);
+            const filtered = current.filter(item => item.id !== id);
+            await this.setLocalCollection(collection, filtered);
+            return;
+        }
         return this.firestore.collection(collection).doc(id).delete();
     },
 
@@ -347,10 +410,19 @@ const db = {
                 puntosParaCanje: 100, // mínimo de puntos para canjear
                 conversiones: [
                     { puntos: 1, valor: 0.5 }
+                ],
+                niveles: [
+                    { id: 'bronce', nombre: 'Bronce', minPuntos: 0, color: '#cd7f32', beneficios: 'Ganancia normal de puntos', multiplicadorPuntos: 1, multiplicadorValor: 1 },
+                    { id: 'plata', nombre: 'Plata', minPuntos: 300, color: '#c0c0c0', beneficios: '10% extra en valor de puntos', multiplicadorPuntos: 1.1, multiplicadorValor: 1.1 },
+                    { id: 'oro', nombre: 'Oro', minPuntos: 1000, color: '#ffd700', beneficios: 'Bebida de cortesía mensual + 25% valor puntos', multiplicadorPuntos: 1.2, multiplicadorValor: 1.25 },
+                    { id: 'platino', nombre: 'Platino', minPuntos: 2500, color: '#e5e4e2', beneficios: 'Postre de cortesía semanal + 50% valor puntos', multiplicadorPuntos: 1.5, multiplicadorValor: 1.5 }
                 ]
             },
             auditoria: {
                 activo: true
+            },
+            databaseConfig: {
+                modoLocal: false
             }
         };
         const saved = localStorage.getItem('aromatic_settings');

@@ -7,7 +7,7 @@ const salesView = {
     async render() {
         this.ventas = await db.getCollection('ventas');
 
-        const dateVentas = this.ventas.filter(v => 
+        const dateVentas = this.ventas.filter(v =>
             new Date(v.fecha).toLocaleDateString('en-CA') === this.selectedDate
         );
 
@@ -137,10 +137,10 @@ const salesView = {
                 <!-- Results Info -->
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 0 4px;">
                     <div style="font-size: 0.9rem; color: var(--text-muted); font-weight: 500;">
-                        ${sortedVentas.length === dateVentas.length 
-                            ? `Mostrando <strong style="color: var(--primary);">${sortedVentas.length}</strong> transacciones`
-                            : `<strong style="color: var(--primary);">${sortedVentas.length}</strong> de ${dateVentas.length} transacciones`
-                        }
+                        ${sortedVentas.length === dateVentas.length
+                ? `Mostrando <strong style="color: var(--primary);">${sortedVentas.length}</strong> transacciones`
+                : `<strong style="color: var(--primary);">${sortedVentas.length}</strong> de ${dateVentas.length} transacciones`
+            }
                     </div>
                     ${sortedVentas.length === 0 && this.filterQuery ? `
                         <button class="btn-secondary" onclick="salesView.clearFilters()" style="font-size: 0.85rem; padding: 8px 16px; border-radius: 12px;">
@@ -150,26 +150,28 @@ const salesView = {
                 </div>
 
                 <!-- Sales List -->
-                ${sortedVentas.length > 0 ? (
-                    this.viewMode === 'cards' 
-                        ? this.renderCardsView(sortedVentas)
-                        : this.renderTableView(sortedVentas)
-                ) : `
-                    <div style="text-align: center; padding: 80px 20px; background: white; border-radius: 24px; border: 2px dashed #e2e8f0;">
-                        <div style="width: 80px; height: 80px; background: #f8fafc; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px;">
-                            <i data-lucide="inbox" style="width: 40px; height: 40px; color: #cbd5e1;"></i>
+                <div id="sales-results-container">
+                    ${sortedVentas.length > 0 ? (
+                this.viewMode === 'cards'
+                    ? this.renderCardsView(sortedVentas)
+                    : this.renderTableView(sortedVentas)
+            ) : `
+                        <div style="text-align: center; padding: 80px 20px; background: white; border-radius: 24px; border: 2px dashed #e2e8f0;">
+                            <div style="width: 80px; height: 80px; background: #f8fafc; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px;">
+                                <i data-lucide="inbox" style="width: 40px; height: 40px; color: #cbd5e1;"></i>
+                            </div>
+                            <h3 style="font-family: 'Playfair Display', serif; font-size: 1.5rem; margin-bottom: 12px; color: var(--primary);">
+                                ${this.filterQuery ? 'No se encontraron resultados' : 'Sin ventas registradas'}
+                            </h3>
+                            <p style="color: var(--text-muted); font-size: 0.95rem; max-width: 400px; margin: 0 auto;">
+                                ${this.filterQuery
+                ? 'Intenta con otro término de búsqueda o selecciona una fecha diferente.'
+                : 'No hay transacciones registradas para la fecha seleccionada.'
+            }
+                            </p>
                         </div>
-                        <h3 style="font-family: 'Playfair Display', serif; font-size: 1.5rem; margin-bottom: 12px; color: var(--primary);">
-                            ${this.filterQuery ? 'No se encontraron resultados' : 'Sin ventas registradas'}
-                        </h3>
-                        <p style="color: var(--text-muted); font-size: 0.95rem; max-width: 400px; margin: 0 auto;">
-                            ${this.filterQuery 
-                                ? 'Intenta con otro término de búsqueda o selecciona una fecha diferente.'
-                                : 'No hay transacciones registradas para la fecha seleccionada.'
-                            }
-                        </p>
-                    </div>
-                `}
+                    `}
+                </div>
             </div>
         `;
     },
@@ -178,11 +180,11 @@ const salesView = {
         return `
             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px;">
                 ${ventas.map(v => {
-                    const folio = v.folio || v.id.slice(-4).toUpperCase();
-                    const timeStr = new Date(v.fecha).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
-                    const dateStr = new Date(v.fecha).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
-                    
-                    return `
+            const folio = v.folio || v.id.slice(-4).toUpperCase();
+            const timeStr = new Date(v.fecha).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+            const dateStr = new Date(v.fecha).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+
+            return `
                         <div class="sale-card-premium" onclick="salesView.showTicket('${v.id}')" style="background: white; border: 1px solid #f1f5f9; border-radius: 20px; padding: 24px; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
                                 <div>
@@ -237,7 +239,7 @@ const salesView = {
                             </div>
                         </div>
                     `;
-                }).join('')}
+        }).join('')}
             </div>
         `;
     },
@@ -260,15 +262,15 @@ const salesView = {
                         </thead>
                         <tbody>
                             ${ventas.map((v, idx) => {
-                                const folio = v.folio || v.id.slice(-4).toUpperCase();
-                                const timeStr = new Date(v.fecha).toLocaleString('es-MX', { 
-                                    day: 'numeric', 
-                                    month: 'short',
-                                    hour: '2-digit', 
-                                    minute: '2-digit' 
-                                });
-                                
-                                return `
+            const folio = v.folio || v.id.slice(-4).toUpperCase();
+            const timeStr = new Date(v.fecha).toLocaleString('es-MX', {
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            return `
                                     <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.2s; cursor: pointer;" 
                                         onclick="salesView.showTicket('${v.id}')"
                                         onmouseenter="this.style.background='#fafafa'"
@@ -314,7 +316,7 @@ const salesView = {
                                         </td>
                                     </tr>
                                 `;
-                            }).join('')}
+        }).join('')}
                         </tbody>
                     </table>
                 </div>
@@ -335,17 +337,18 @@ const salesView = {
 
     bindEvents(appInstance) {
         this.app = appInstance;
-        
+
         const searchInput = document.getElementById('salesSearchInput');
         const dateInput = document.getElementById('salesDateInput');
-        
+
         if (searchInput) {
+            const debouncedRefresh = this.app.debounce(() => this.refreshGrid(), 300);
             searchInput.oninput = (e) => {
                 this.filterQuery = e.target.value;
-                this.refreshGrid();
+                debouncedRefresh();
             };
         }
-        
+
         if (dateInput) {
             dateInput.onchange = (e) => {
                 this.selectedDate = e.target.value;
@@ -360,13 +363,54 @@ const salesView = {
     },
 
     async refreshGrid() {
-        const container = document.getElementById('view-container');
-        if (this.app && this.app.currentView === 'sales') {
-            const html = await this.render();
-            container.innerHTML = `<div class="view-enter">${html}</div>`;
-            container.scrollTop = 0;
+        const resultsContainer = document.getElementById('sales-results-container');
+        if (resultsContainer) {
+            this.ventas = await db.getCollection('ventas');
+            const dateVentas = this.ventas.filter(v =>
+                new Date(v.fecha).toLocaleDateString('en-CA') === this.selectedDate
+            );
+
+            const filtered = dateVentas.filter(v => {
+                if (!this.filterQuery) return true;
+                const folio = (v.folio || v.id || '').toString().toLowerCase();
+                const cliente = v.cliente?.nombre?.toLowerCase() || '';
+                const productos = v.items.map(i => i.nombre.toLowerCase()).join(' ');
+                const query = this.filterQuery.toLowerCase();
+                return folio.includes(query) || cliente.includes(query) || productos.includes(query);
+            });
+
+            const sortedVentas = [...filtered].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+            resultsContainer.innerHTML = sortedVentas.length > 0 ? (
+                this.viewMode === 'cards'
+                    ? this.renderCardsView(sortedVentas)
+                    : this.renderTableView(sortedVentas)
+            ) : `
+                <div style="text-align: center; padding: 80px 20px; background: white; border-radius: 24px; border: 2px dashed #e2e8f0;">
+                    <div style="width: 80px; height: 80px; background: #f8fafc; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px;">
+                        <i data-lucide="inbox" style="width: 40px; height: 40px; color: #cbd5e1;"></i>
+                    </div>
+                    <h3 style="font-family: 'Playfair Display', serif; font-size: 1.5rem; margin-bottom: 12px; color: var(--primary);">
+                        ${this.filterQuery ? 'No se encontraron resultados' : 'Sin ventas registradas'}
+                    </h3>
+                    <p style="color: var(--text-muted); font-size: 0.95rem; max-width: 400px; margin: 0 auto;">
+                        ${this.filterQuery
+                ? 'Intenta con otro término de búsqueda o selecciona una fecha diferente.'
+                : 'No hay transacciones registradas para la fecha seleccionada.'
+            }
+                    </p>
+                </div>
+            `;
             if (typeof lucide !== 'undefined') lucide.createIcons();
-            this.bindEvents(this.app);
+        } else {
+            const container = document.getElementById('view-container');
+            if (this.app && this.app.currentView === 'sales') {
+                const html = await this.render();
+                container.innerHTML = `<div class="view-enter">${html}</div>`;
+                container.scrollTop = 0;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                this.bindEvents(this.app);
+            }
         }
     },
 

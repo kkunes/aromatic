@@ -52,7 +52,7 @@ const suppliesView = {
                     `).join('')}
                 </div>
 
-                <div class="stats-grid" style="flex-shrink: 0; margin-bottom: 25px; margin-top: 0;">
+                <div id="supplies-stats-container" class="stats-grid" style="flex-shrink: 0; margin-bottom: 25px; margin-top: 0;">
                     <div class="stat-card">
                         <span class="stat-label">Total Items</span>
                         <span class="stat-value">${this.insumos.length}</span>
@@ -67,7 +67,7 @@ const suppliesView = {
                     </div>
                 </div>
                 
-                <div class="table-container hide-scrollbar" style="flex: 1; overflow-y: auto; margin-top: 0;">
+                <div id="supplies-table-container" class="table-container hide-scrollbar" style="flex: 1; overflow-y: auto; margin-top: 0;">
                     <table class="modern-table">
                         <thead style="position: sticky; top: 0; background: white; z-index: 10;">
                             <tr>
@@ -149,13 +149,102 @@ const suppliesView = {
     },
 
     async refreshGrid() {
-        const container = document.getElementById('view-container');
-        if (this.app && this.app.currentView === 'supplies') {
-            const html = await this.render();
-            container.innerHTML = `<div class="view-enter">${html}</div>`;
-            container.scrollTop = 0; // Reset scroll to top
+        const resultsContainer = document.getElementById('supplies-table-container');
+        const statsContainer = document.getElementById('supplies-stats-container');
+
+        if (resultsContainer && statsContainer) {
+            this.insumos = await db.getCollection('insumos');
+
+            const filteredInsumos = this.insumos.filter(i => {
+                const matchesCat = this.activeCategory === 'all' || (i.categoria || 'General') === this.activeCategory;
+                const matchesSearch = i.nombre.toLowerCase().includes(this.filterQuery.toLowerCase());
+                return matchesCat && matchesSearch;
+            });
+
+            // Update Stats
+            statsContainer.innerHTML = `
+                <div class="stat-card">
+                    <span class="stat-label">Total Items</span>
+                    <span class="stat-value">${this.insumos.length}</span>
+                </div>
+                <div class="stat-card warning">
+                    <span class="stat-label">Stock Bajo</span>
+                    <span class="stat-value" style="color: #eab308;">${this.insumos.filter(i => i.stock <= i.stockMinimo).length}</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Valor Inventario</span>
+                    <span class="stat-value" style="color: var(--success);">$${this.insumos.reduce((sum, i) => sum + (i.stock * (i.costoUnitario || 0)), 0).toFixed(2)}</span>
+                </div>
+            `;
+
+            // Update Table
+            resultsContainer.innerHTML = `
+                <table class="modern-table">
+                    <thead style="position: sticky; top: 0; background: white; z-index: 10;">
+                        <tr>
+                            <th>Insumo</th>
+                            <th>Categoría</th>
+                            <th>Stock</th>
+                            <th>Costo Unit.</th>
+                            <th>Precio Extra</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filteredInsumos.map(i => `
+                            <tr>
+                                <td>
+                                    <div class="supply-info">
+                                        <strong style="font-size: 1rem; color: var(--primary);">${i.nombre}</strong>
+                                        <small style="color: var(--text-muted);">${i.stockMinimo} ${i.unidad} (Mínimo)</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span style="background: #f1f5f9; color: #64748b; padding: 4px 10px; border-radius: 12px; font-size: 0.85rem; font-weight: 500;">
+                                        ${i.categoria || 'General'}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="stock-indicator">
+                                        <span class="stock-text ${i.stock <= i.stockMinimo ? 'text-danger' : ''}">
+                                            ${i.stock.toFixed(2)} ${i.unidad}
+                                        </span>
+                                        <div class="stock-bar-bg">
+                                            <div class="stock-bar-fill ${i.stock <= i.stockMinimo ? 'bg-danger' : ''}" 
+                                                 style="width: ${Math.min((i.stock / (i.stockMinimo * 2)) * 100, 100)}%"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td style="font-weight: 600;">$${(i.costoUnitario || 0).toFixed(2)}</td>
+                                <td style="font-weight: 600;">$${(i.precioExtra || 0).toFixed(2)}</td>
+                                <td>
+                                    <div style="display: flex; gap: 8px;">
+                                        <button class="btn-icon-small" onclick="suppliesView.surtirInsumo('${i.id}')" title="Surtir">
+                                            <i data-lucide="package-plus"></i>
+                                        </button>
+                                        <button class="btn-icon-small" onclick="suppliesView.editInsumo('${i.id}')" title="Editar">
+                                            <i data-lucide="edit-3"></i>
+                                        </button>
+                                        <button class="btn-icon-small danger" onclick="suppliesView.deleteInsumo('${i.id}')" title="Eliminar">
+                                            <i data-lucide="trash-2"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
             if (typeof lucide !== 'undefined') lucide.createIcons();
-            this.bindEvents(this.app);
+        } else {
+            const container = document.getElementById('view-container');
+            if (this.app && this.app.currentView === 'supplies') {
+                const html = await this.render();
+                container.innerHTML = `<div class="view-enter">${html}</div>`;
+                container.scrollTop = 0;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                this.bindEvents(this.app);
+            }
         }
     },
 
@@ -322,6 +411,11 @@ const suppliesView = {
     },
 
     async deleteInsumo(id) {
+        const currentUser = db.getCurrentUser();
+        if (currentUser.rol !== 'admin') {
+            return alert('Solo el administrador puede eliminar insumos.');
+        }
+
         const confirm = await app.showConfirmModal({
             title: 'Eliminar Insumo',
             message: '¿Estás seguro? Esto podría afectar recetas que usen este insumo.',

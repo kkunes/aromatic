@@ -8,6 +8,7 @@ class AromaticApp {
         this.tickets = [{ id: 1, cart: [], cliente: null, mesaId: null }];
         this.activeTicketIdx = 0;
         this.ticketCounter = 1;
+        this.activePinUserId = null;
         this.init();
     }
 
@@ -57,6 +58,9 @@ class AromaticApp {
 
             if (view === 'settings' && user.rol !== 'admin') li.style.display = 'none';
             if (view === 'sales' && user.rol === 'mesero') li.style.display = 'none';
+            if (view === 'analytics' && user.rol === 'mesero') li.style.display = 'none';
+            if (view === 'prediction' && user.rol === 'mesero') li.style.display = 'none';
+            if (view === 'menu' && user.rol === 'mesero') li.style.display = 'none';
             if (view === 'cash-closing' && user.rol === 'mesero') li.style.display = 'none';
             if (view === 'inventory' && user.rol === 'mesero') li.style.display = 'none';
         });
@@ -65,6 +69,9 @@ class AromaticApp {
         const restricted = {
             'settings': ['admin'],
             'sales': ['admin', 'cajero'],
+            'analytics': ['admin', 'cajero'],
+            'prediction': ['admin', 'cajero'],
+            'menu': ['admin', 'cajero'],
             'cash-closing': ['admin', 'cajero'],
             'inventory': ['admin', 'cajero']
         };
@@ -214,10 +221,12 @@ class AromaticApp {
             });
         });
 
-        // Search
-        document.getElementById('globalSearch').addEventListener('input', (e) => {
-            this.handleSearch(e.target.value);
-        });
+        // Global Search with debounce
+        const globalSearch = document.getElementById('globalSearch');
+        if (globalSearch) {
+            const debouncedSearch = this.debounce((query) => this.handleSearch(query), 300);
+            globalSearch.oninput = (e) => debouncedSearch(e.target.value);
+        }
 
         // Checkout
         document.getElementById('checkoutBtn').addEventListener('click', () => {
@@ -242,10 +251,12 @@ class AromaticApp {
         // Customer Selection in Cart
         document.getElementById('selectCustomerBtn').onclick = () => this.showCustomerSelector();
         document.getElementById('removeCustomerBtn').onclick = () => this.removeCustomerFromTicket();
+
         // History Search
         const histSearch = document.getElementById('historySearch');
         if (histSearch) {
-            histSearch.oninput = (e) => this.updateDailyHistoryUI(e.target.value);
+            const debouncedHist = this.debounce((query) => this.updateDailyHistoryUI(query), 300);
+            histSearch.oninput = (e) => debouncedHist(e.target.value);
         }
 
         // Image lazy loading smooth transition
@@ -266,6 +277,7 @@ class AromaticApp {
         const modal = document.getElementById('modalContainer');
         const modalContent = modal.querySelector('.modal-content');
         const usuarios = await db.getCollection('usuarios');
+        this.activePinUserId = null;
 
         modalContent.innerHTML = `
             <div style="width: 550px; padding: 10px;">
@@ -346,6 +358,7 @@ class AromaticApp {
         `;
         if (typeof lucide !== 'undefined') lucide.createIcons();
         this.currentPinEntry = '';
+        this.activePinUserId = userId;
     }
 
     enterPinDigit(digit, userId) {
@@ -384,6 +397,7 @@ class AromaticApp {
             this.applyRolePrivileges();
             this.renderView(this.currentView);
             this.currentPinEntry = '';
+            this.activePinUserId = null;
         } else {
             audioService.playError();
             this.currentPinEntry = '';
@@ -458,6 +472,15 @@ class AromaticApp {
                     const modal = document.getElementById('modalContainer');
                     if (modal && !modal.classList.contains('hidden')) {
                         modal.classList.add('hidden');
+                        this.activePinUserId = null;
+                    }
+                    break;
+                default:
+                    // Handle PIN digits from keyboard
+                    if (this.activePinUserId && !isNaN(e.key) && e.key !== ' ') {
+                        this.enterPinDigit(e.key, this.activePinUserId);
+                    } else if (this.activePinUserId && (e.key === 'Backspace' || e.key === 'Delete')) {
+                        this.enterPinDigit('clear', this.activePinUserId);
                     }
                     break;
             }
@@ -481,6 +504,34 @@ class AromaticApp {
             cartSection.classList.add('hidden');
             historySection.classList.remove('hidden');
             this.updateDailyHistoryUI();
+        }
+    }
+
+    // --- Utilities ---
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    handleSearch(query) {
+        const searchVal = query.toLowerCase();
+        if (this.currentView === 'pos') {
+            posView.filter(searchVal);
+        } else if (this.currentView === 'inventory') {
+            inventoryView.filter(searchVal);
+        } else if (this.currentView === 'supplies') {
+            suppliesView.filter(searchVal);
+        } else if (this.currentView === 'sales') {
+            salesView.filter(searchVal);
+        } else if (this.currentView === 'customers') {
+            customersView.filter(searchVal);
         }
     }
 
@@ -652,6 +703,9 @@ class AromaticApp {
             case 'customers': html = await customersView.render(); break;
             case 'supplies': html = await suppliesView.render(); break;
             case 'sales': html = await salesView.render(); break;
+            case 'analytics': html = await analyticsView.render(); break;
+            case 'prediction': html = await predictionsView.render(); break;
+            case 'menu': html = await menuView.render(); break;
             case 'cash-closing': html = await cashClosingView.render(); break;
             case 'settings': html = await settingsView.render(); break;
             case 'tables': html = await tablesView.render(); break;
@@ -672,6 +726,9 @@ class AromaticApp {
             case 'customers': customersView.bindEvents(this); break;
             case 'supplies': suppliesView.bindEvents(this); break;
             case 'sales': salesView.bindEvents(this); break;
+            case 'analytics': analyticsView.bindEvents(this); break;
+            case 'prediction': predictionsView.bindEvents(this); break;
+            case 'menu': menuView.bindEvents(this); break;
             case 'cash-closing': cashClosingView.bindEvents(this); break;
             case 'settings': settingsView.bindEvents(this); break;
         }
@@ -1502,7 +1559,12 @@ class AromaticApp {
                             <div class="loyalty-card-header">
                                 <div>
                                     <div class="loyalty-card-title">Programa de Fidelidad</div>
-                                    <div style="font-size: 1.1rem; font-weight: 600; margin-top: 4px;">${cliente.nombre}</div>
+                                    <div style="font-size: 1.1rem; font-weight: 600; margin-top: 4px; display: flex; align-items: center; gap: 8px;">
+                                        ${cliente.nombre}
+                                        <span style="font-size: 0.65rem; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">
+                                            ${customersView.getCurrentTier(cliente.puntos || 0, settings.fidelizacion).nombre}
+                                        </span>
+                                    </div>
                                 </div>
                                 <div style="background: rgba(255,255,255,0.2); width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
                                     <i data-lucide="award" style="color: var(--accent); width: 24px; height: 24px;"></i>
@@ -1685,19 +1747,54 @@ class AromaticApp {
 
             // Loyalty Points
             if (venta.cliente && settings.fidelizacion.activo) {
-                let newTotalPoints = (venta.cliente.puntos || 0);
+                const customer = (await db.getCollection('clientes')).find(c => c.id === venta.cliente.id);
+                if (customer) {
+                    let newTotalPoints = (customer.puntos || 0);
+                    let lotes = customer.puntosLotes || [];
+                    const fidel = settings.fidelizacion;
 
-                if (venta.puntosCanjeados > 0) {
-                    // Scenario: Redemption - subtract points, but do not earn new ones
-                    newTotalPoints -= venta.puntosCanjeados;
-                } else {
-                    // Scenario: Accrual - award points normally
-                    const dineroBase = settings.fidelizacion.dineroBase || 10;
-                    const puntosGanados = Math.floor(venta.total / dineroBase) * settings.fidelizacion.puntosPorDinero;
-                    newTotalPoints += puntosGanados;
+                    if (venta.puntosCanjeados > 0) {
+                        // REDEMPTION: Subtract from oldest batches (FIFO)
+                        let remainingToDeduct = venta.puntosCanjeados;
+                        lotes.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+                        lotes = lotes.map(lote => {
+                            if (remainingToDeduct <= 0) return lote;
+                            const deduction = Math.min(lote.puntos, remainingToDeduct);
+                            lote.puntos -= deduction;
+                            remainingToDeduct -= deduction;
+                            return lote;
+                        }).filter(lote => lote.puntos > 0);
+
+                        newTotalPoints = Math.max(0, newTotalPoints - venta.puntosCanjeados);
+                    } else {
+                        // ACCRUAL: award points normally
+                        const dineroBase = fidel.dineroBase || 10;
+                        const tier = customersView.getCurrentTier(customer.puntos || 0, fidel);
+                        const multiplier = tier ? (tier.multiplicadorPuntos || 1) : 1;
+                        const puntosGanados = Math.floor(venta.total / dineroBase) * fidel.puntosPorDinero * multiplier;
+                        newTotalPoints += puntosGanados;
+
+                        if (fidel.tipoVencimiento === 'transaccion') {
+                            const now = new Date();
+                            const vence = new Date();
+                            vence.setMonth(vence.getMonth() + (fidel.vigenciaPuntosMeses || 6));
+
+                            lotes.push({
+                                puntos: puntosGanados,
+                                fecha: now.toISOString(),
+                                expira: vence.toISOString()
+                            });
+                        }
+                    }
+
+                    await db.updateDocument('clientes', customer.id, {
+                        puntos: Math.max(0, newTotalPoints),
+                        puntosLotes: lotes,
+                        ultimaActividad: new Date().toISOString(),
+                        visitas: (customer.visitas || 0) + 1
+                    });
                 }
-
-                await db.updateDocument('clientes', venta.cliente.id, { puntos: Math.max(0, newTotalPoints) });
             }
 
             // Discount supplies from recipes (including extras)

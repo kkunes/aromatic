@@ -150,6 +150,11 @@ const usersView = {
     },
 
     async deleteUser(id) {
+        const currentUser = db.getCurrentUser();
+        if (currentUser.rol !== 'admin') {
+            return alert('No tienes permisos suficientes para eliminar usuarios.');
+        }
+
         if (confirm('¿Estás seguro de eliminar este usuario? No podrá volver a iniciar sesión.')) {
             await db.deleteDocument('usuarios', id);
             app.renderView('users');
