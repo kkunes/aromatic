@@ -102,10 +102,40 @@ const ticketView = {
 
                 <div class="ticket-footer" style="text-align: center; margin-top: 15px; border-top: 1px dashed #000; padding-top: 10px; color: #000;">
                     ${venta.cliente ? `
-                        <div style="margin-bottom: 10px; padding: 5px; border: 1px solid #000; border-radius: 4px;">
-                            <p style="margin: 0; font-size: 0.85em; font-weight: bold;">CLIENTE: ${venta.cliente.nombre}</p>
-                            <p style="margin: 2px 0; font-size: 0.8em;">Puntos acumulados: ${venta.cliente.puntos || 0}</p>
-                            <p style="margin: 0; font-size: 0.75em; font-style: italic;">¡Gracias por ser cliente ${settings.negocio.nombre}!</p>
+                        <div style="margin-bottom: 10px; padding: 5px; border: 1px solid #000; border-radius: 4px; text-align: left;">
+                            <p style="margin: 0 0 5px 0; font-size: 0.85em; font-weight: bold; text-align: center; border-bottom: 1px solid #000; padding-bottom: 3px;">PROGRAMA DE LEALTAD</p>
+                            <p style="margin: 0; font-size: 0.8em; font-weight: bold;">${venta.cliente.nombre}</p>
+                            
+                            <div style="font-size: 0.75em; margin-top: 5px; border-top: 1px dashed #000; padding-top: 3px;">
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span>Puntos anteriores:</span>
+                                    <span>${venta.puntosPrevios || 0}</span>
+                                </div>
+                                
+                                ${venta.puntosGanados > 0 ? `
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span>Puntos por esta compra:</span>
+                                    <span>+${venta.puntosGanados}</span>
+                                </div>
+                                ` : ''}
+                                
+                                ${venta.puntosCanjeados > 0 ? `
+                                <div style="display: flex; justify-content: space-between; color: #000;">
+                                    <span>Puntos canjeados:</span>
+                                    <span>-${venta.puntosCanjeados}</span>
+                                </div>
+                                ` : ''}
+                                
+                                <div style="display: flex; justify-content: space-between; font-weight: bold; margin-top: 3px; border-top: 1px solid #000; padding-top: 2px;">
+                                    <span>SALDO ACTUAL:</span>
+                                    <span>${venta.puntosTotales || 0} pts</span>
+                                </div>
+                                
+                                <div style="display: flex; justify-content: space-between; font-style: italic; margin-top: 2px;">
+                                    <span>Valor acumulado:</span>
+                                    <span>$${((venta.puntosTotales || 0) * (settings.fidelizacion.valorPunto || 0)).toFixed(2)} MXN</span>
+                                </div>
+                            </div>
                         </div>
                     ` : ''}
 

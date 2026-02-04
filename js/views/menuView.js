@@ -398,28 +398,65 @@ const menuView = {
         app.showToast('Enlace copiado al portapapeles', 'info');
     },
 
-    generatePDF() {
+    async generatePDF() {
+        const settings = db.getSettings();
         const content = this.renderMenuMarkup(true);
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = content;
-        tempDiv.style.width = '800px';
+
+        // Essential styles for a solid capture
+        Object.assign(tempDiv.style, {
+            position: 'fixed',
+            left: '0',
+            top: '0',
+            width: '850px',
+            background: this.menuConfig.theme.backgroundColor || '#ffffff',
+            zIndex: '-9999',
+            opacity: '1',
+            visibility: 'visible'
+        });
+
         document.body.appendChild(tempDiv);
 
-        // Hide during capture
-        tempDiv.style.position = 'absolute';
-        tempDiv.style.left = '-9999px';
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons({ root: tempDiv });
+        }
+
+        const waitImages = () => {
+            const imgs = Array.from(tempDiv.getElementsByTagName('img'));
+            return Promise.all(imgs.map(img => {
+                if (img.complete) return Promise.resolve();
+                return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
+            }));
+        };
 
         const opt = {
             margin: 0,
-            filename: `Menu-${settings.negocio.nombre}.pdf`,
+            filename: `Menu-${settings.negocio.nombre || 'Digital'}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
+            html2canvas: {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                backgroundColor: this.menuConfig.theme.backgroundColor || '#ffffff',
+                windowWidth: 850
+            },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
 
-        html2pdf().set(opt).from(tempDiv).save().then(() => {
-            document.body.removeChild(tempDiv);
-            app.showToast('PDF generado correctamente', 'success');
-        });
+        try {
+            app.showToast('Optimizando diseño del PDF...', 'info');
+            await document.fonts.ready;
+            await waitImages();
+            await new Promise(r => setTimeout(r, 500)); // Layout settle time
+
+            await html2pdf().set(opt).from(tempDiv).save();
+            app.showToast('PDF generado con éxito', 'success');
+        } catch (err) {
+            console.error('PDF error:', err);
+            app.showToast('Error al generar PDF', 'error');
+        } finally {
+            if (document.body.contains(tempDiv)) document.body.removeChild(tempDiv);
+        }
     }
 };

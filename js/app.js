@@ -1713,9 +1713,31 @@ class AromaticApp {
         };
 
         const processPayment = async (method, received = null) => {
-            // finalTotal is already updated
             const change = received ? received - finalTotal : 0;
             const currentTicket = this.tickets[this.activeTicketIdx];
+            const fidel = settings.fidelizacion;
+
+            // Puntos logic early to save in venta object
+            let puntosGanados = 0;
+            let puntosPrevios = 0;
+            let puntosNuevos = 0;
+
+            if (currentTicket.cliente && fidel.activo) {
+                const customer = (await db.getCollection('clientes')).find(c => c.id === currentTicket.cliente.id);
+                if (customer) {
+                    puntosPrevios = customer.puntos || 0;
+                    if (puntosCanjeados > 0) {
+                        puntosGanados = 0;
+                        puntosNuevos = Math.max(0, puntosPrevios - puntosCanjeados);
+                    } else {
+                        const dineroBase = fidel.dineroBase || 10;
+                        const tier = customersView.getCurrentTier(puntosPrevios, fidel);
+                        const multiplier = tier ? (tier.multiplicadorPuntos || 1) : 1;
+                        puntosGanados = Math.floor(finalTotal / dineroBase) * (fidel.puntosPorDinero || 1) * multiplier;
+                        puntosNuevos = puntosPrevios + puntosGanados;
+                    }
+                }
+            }
 
             // Recuperar información de la mesa si aplica
             let mesaInfo = null;
@@ -1736,11 +1758,18 @@ class AromaticApp {
                 totalDescuentoPromocion: currentTicket.totalDescuento || 0,
                 promocionesAplicadas: currentTicket.promocionesAplicadas || [],
                 puntosCanjeados: puntosCanjeados,
+                puntosGanados: puntosGanados,
+                puntosPrevios: puntosPrevios,
+                puntosTotales: puntosNuevos,
                 metodoPago: method,
                 fecha: new Date().toISOString(),
                 pagadoCon: received,
                 cambio: change,
-                cliente: currentTicket.cliente ? { id: currentTicket.cliente.id, nombre: currentTicket.cliente.nombre, puntos: currentTicket.cliente.puntos } : null,
+                cliente: currentTicket.cliente ? {
+                    id: currentTicket.cliente.id,
+                    nombre: currentTicket.cliente.nombre,
+                    puntos: puntosNuevos // Grab the updated point total
+                } : null,
                 mesa: mesaInfo
             };
 
@@ -1749,13 +1778,11 @@ class AromaticApp {
 
             audioService.playSuccess(); // Premium sound
 
-            // Loyalty Points
-            if (venta.cliente && settings.fidelizacion.activo) {
+            // Update Loyalty Points in Database
+            if (venta.cliente && fidel.activo) {
                 const customer = (await db.getCollection('clientes')).find(c => c.id === venta.cliente.id);
                 if (customer) {
-                    let newTotalPoints = (customer.puntos || 0);
                     let lotes = customer.puntosLotes || [];
-                    const fidel = settings.fidelizacion;
 
                     if (venta.puntosCanjeados > 0) {
                         // REDEMPTION: Subtract from oldest batches (FIFO)
@@ -1769,16 +1796,8 @@ class AromaticApp {
                             remainingToDeduct -= deduction;
                             return lote;
                         }).filter(lote => lote.puntos > 0);
-
-                        newTotalPoints = Math.max(0, newTotalPoints - venta.puntosCanjeados);
-                    } else {
+                    } else if (puntosGanados > 0) {
                         // ACCRUAL: award points normally
-                        const dineroBase = fidel.dineroBase || 10;
-                        const tier = customersView.getCurrentTier(customer.puntos || 0, fidel);
-                        const multiplier = tier ? (tier.multiplicadorPuntos || 1) : 1;
-                        const puntosGanados = Math.floor(venta.total / dineroBase) * fidel.puntosPorDinero * multiplier;
-                        newTotalPoints += puntosGanados;
-
                         if (fidel.tipoVencimiento === 'transaccion') {
                             const now = new Date();
                             const vence = new Date();
@@ -1793,7 +1812,7 @@ class AromaticApp {
                     }
 
                     await db.updateDocument('clientes', customer.id, {
-                        puntos: Math.max(0, newTotalPoints),
+                        puntos: venta.puntosTotales,
                         puntosLotes: lotes,
                         ultimaActividad: new Date().toISOString(),
                         visitas: (customer.visitas || 0) + 1
