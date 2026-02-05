@@ -39,6 +39,9 @@ const menuView = {
                         <p style="color: var(--text-muted); font-size: 1rem; margin-left: 54px;">Crea y personaliza la carta visual de tu negocio</p>
                     </div>
                     <div style="display: flex; gap: 12px;">
+                        <button class="btn-secondary" onclick="menuView.selectAllProducts()" style="padding: 14px 24px; border-radius: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; border: 2px solid var(--primary); color: var(--primary);">
+                            <i data-lucide="check-square"></i> TODO EL CATÁLOGO
+                        </button>
                         <button class="btn-secondary" onclick="menuView.generatePDF()" style="padding: 14px 24px; border-radius: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; border: 2px solid #ef4444; color: #ef4444;">
                             <i data-lucide="file-text"></i> EXPORTAR PDF
                         </button>
@@ -190,12 +193,15 @@ const menuView = {
 
     async saveConfig() {
         localStorage.setItem('aromatic_menu_config', JSON.stringify(this.menuConfig));
-
-        // Save to DB (Firestore or LocalDB)
         await db.setCollection('menu_config', [this.menuConfig]);
-
         app.showToast('Configuración del menú guardada y sincronizada', 'success');
         if (typeof audioService !== 'undefined') audioService.playSuccess();
+    },
+
+    selectAllProducts() {
+        this.menuConfig.includedProducts = this.products.map(p => p.id);
+        app.showToast('Todo el catálogo seleccionado para el menú', 'info');
+        app.renderView('menu'); // Full refresh to update all checkboxes
     },
 
     updateConfig(key, val) {
@@ -284,72 +290,143 @@ const menuView = {
             groups[p.categoria].push(p);
         });
 
-        const styles = `
-            font-family: ${theme.fontFamily};
-            color: ${theme.textColor};
-            padding: ${isForPrint ? '40px' : '30px'};
-            min-height: 100%;
-        `;
-
         const headerColor = theme.primaryColor;
         const accentColor = theme.secondaryColor;
 
         const settings = db.getSettings();
         const biz = settings.negocio || { nombre: 'Nuestra Carta', eslogan: 'Sabor con Alma & Corazón', logo: 'recursos/logo efimero.png' };
 
-        return `
-                <div id="printableMenu" style="${styles}">
-                    <!-- Header -->
-                    <div style="text-align: center; margin-bottom: 50px;">
-                        <img src="${biz.logo}" style="width: 80px; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.1)); margin-bottom: 15px;">
-                        <h1 style="font-size: 3rem; margin: 0; color: ${headerColor};">${biz.nombre}</h1>
-                        <div style="width: 60px; height: 3px; background: ${accentColor}; margin: 15px auto;"></div>
-                        <p style="text-transform: uppercase; letter-spacing: 3px; font-size: 0.8rem; font-weight: 700; opacity: 0.6;">${biz.eslogan}</p>
+        if (isForPrint) {
+            // HIGH-END PREMIUM PRINT LAYOUT (Standard Letter Page - Bordered)
+            return `
+                <div id="printableMenu" style="
+                    font-family: ${theme.fontFamily || 'Outfit, sans-serif'}, sans-serif, system-ui;
+                    color: ${theme.textColor || '#333'};
+                    padding: 0.5in;
+                    background: white;
+                    width: 6.5in; 
+                    margin: 0 auto;
+                    box-sizing: border-box;
+                    position: relative;
+                ">
+                    <!-- Elegant Border Frame -->
+                    <div style="position: absolute; top: 0.25in; left: 0.25in; right: 0.25in; bottom: 0.25in; border: 1px solid ${headerColor}20; pointer-events: none;"></div>
+                    <div style="position: absolute; top: 0.3in; left: 0.3in; right: 0.3in; bottom: 0.3in; border: 2px solid ${headerColor}08; pointer-events: none;"></div>
+
+                    <!-- Premium Header -->
+                    <div style="text-align: center; padding-top: 20px; margin-bottom: 50px; position: relative; z-index: 10;">
+                        <div style="display: inline-block; margin-bottom: 15px;">
+                            <img src="${biz.logo}" style="width: 80px; height: 80px; object-fit: contain;">
+                        </div>
+                        <h1 style="font-size: 3rem; margin: 0; color: ${headerColor}; font-weight: 700; letter-spacing: -1px;">${biz.nombre}</h1>
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-top: 10px;">
+                            <div style="height: 1px; width: 40px; background: ${accentColor}50;"></div>
+                            <p style="text-transform: uppercase; letter-spacing: 4px; font-size: 0.75rem; font-weight: 700; color: ${accentColor}; margin: 0;">${biz.eslogan}</p>
+                            <div style="height: 1px; width: 40px; background: ${accentColor}50;"></div>
+                        </div>
                     </div>
 
-                <!-- Product Groups -->
+                    <!-- Product Groups -->
+                    <div style="width: 100%; position: relative; z-index: 10;">
+                        ${this.categories.map(cat => {
+                const group = groups[cat.nombre];
+                if (!group || group.length === 0) return '';
+                return `
+                                <div style="margin-bottom: 40px; break-inside: avoid; page-break-inside: avoid;">
+                                    <h2 style="font-size: 1.4rem; color: ${headerColor}; border-bottom: 2px solid ${accentColor}30; padding-bottom: 8px; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 10px;">
+                                        ${cat.nombre}
+                                    </h2>
+                                    <div style="display: flex; flex-direction: column; gap: 18px;">
+                                        ${group.map(p => {
+                    const isFeatured = conf.featuredProducts.includes(p.id);
+                    return `
+                                                <div style="display: flex; align-items: flex-start; gap: 12px; break-inside: avoid; margin-bottom: 2px;">
+                                                    ${conf.showImages && p.imagen ? `
+                                                        <img src="${p.imagen}" style="width: 55px; height: 55px; border-radius: 8px; object-fit: cover; border: 1px solid #eee;">
+                                                    ` : ''}
+                                                    <div style="flex: 1;">
+                                                        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 10px;">
+                                                            <div style="font-weight: 700; font-size: 1rem; color: ${headerColor};">
+                                                                ${p.nombre} ${isFeatured ? '<span style="color:#eab308">★</span>' : ''}
+                                                            </div>
+                                                            <div style="flex-grow: 1; border-bottom: 1px dotted #ccc; position: relative; top: -5px;"></div>
+                                                            <div style="font-weight: 800; color: ${accentColor}; font-size: 1rem;">$${p.precio.toFixed(2)}</div>
+                                                        </div>
+                                                        ${conf.showDescriptions ? `
+                                                            <p style="font-size: 0.75rem; color: #666; margin: 2px 0 0 0; line-height: 1.4; font-style: italic;">
+                                                                ${p.descripcion || 'Especialidad preparada diariamente con ingredientes seleccionados.'}
+                                                            </p>
+                                                        ` : ''}
+                                                    </div>
+                                                </div>
+                                            `;
+                }).join('')}
+                                    </div>
+                                </div>
+                            `;
+            }).join('')}
+                    </div>
+
+                    <!-- Footer -->
+                    <div style="text-align: center; margin-top: 50px; padding-bottom: 20px; border-top: 1px solid #eee; padding-top: 20px; position: relative; z-index: 10;">
+                        <p style="font-size: 0.75rem; color: #999; margin: 0;">${biz.nombre} • Menú Premium</p>
+                        <p style="font-size: 0.7rem; color: ${accentColor}; font-weight: 700; margin-top: 5px;">${new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long' })}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Web Preview Version (Keep mostly as is but cleaner)
+        const styles = `
+            font-family: ${theme.fontFamily};
+            color: ${theme.textColor};
+            padding: 30px;
+            min-height: 100%;
+            background: ${theme.backgroundColor};
+        `;
+
+        return `
+            <div id="printableMenu" style="${styles}">
+                <div style="text-align: center; margin-bottom: 40px;">
+                    <img src="${biz.logo}" style="width: 60px; margin-bottom: 10px;">
+                    <h1 style="font-size: 2.5rem; margin: 0; color: ${headerColor};">${biz.nombre}</h1>
+                    <p style="text-transform: uppercase; letter-spacing: 3px; font-size: 0.7rem; font-weight: 700; opacity: 0.6;">${biz.eslogan}</p>
+                </div>
+
                 ${this.categories.map(cat => {
             const group = groups[cat.nombre];
             if (!group || group.length === 0) return '';
             return `
-                        <div style="margin-bottom: 40px;">
-                            <h2 style="font-size: 1.8rem; color: ${headerColor}; border-bottom: 1.5px solid #eee; padding-bottom: 10px; margin-bottom: 25px; display: flex; align-items: center; gap: 12px;">
-                                <i data-lucide="${cat.icono || 'coffee'}" style="width: 24px; color: ${accentColor}"></i>
+                        <div style="margin-bottom: 35px;">
+                            <h2 style="font-size: 1.5rem; color: ${headerColor}; border-bottom: 1.5px solid #eee; padding-bottom: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                                <i data-lucide="${cat.icono || 'coffee'}" style="width: 20px; color: ${accentColor}"></i>
                                 ${cat.nombre}
                             </h2>
-                            <div style="display: grid; grid-template-columns: ${theme.layout === 'modern' ? 'repeat(auto-fill, minmax(250px, 1fr))' : '1fr'}; gap: ${theme.layout === 'modern' ? '25px' : '20px'};">
+                            <div style="display: grid; grid-template-columns: ${theme.layout === 'modern' ? 'repeat(auto-fill, minmax(200px, 1fr))' : '1fr'}; gap: ${theme.layout === 'modern' ? '20px' : '15px'};">
                                 ${group.map(p => {
                 const isFeatured = conf.featuredProducts.includes(p.id);
                 if (theme.layout === 'classic' || theme.layout === 'minimal') {
                     return `
-                                            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; position: relative;">
+                                            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
                                                 <div style="flex: 1;">
                                                     <div style="display: flex; align-items: center; gap: 8px;">
-                                                        <span style="font-weight: 700; font-size: 1.1rem;">${p.nombre}</span>
-                                                        ${isFeatured ? `<span style="background: ${accentColor}; color: white; font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; font-weight: 800; text-transform: uppercase;">Top</span>` : ''}
+                                                        <span style="font-weight: 700; font-size: 1rem;">${p.nombre}</span>
+                                                        ${isFeatured ? `<span style="background: ${accentColor}; color: white; font-size: 0.5rem; padding: 2px 5px; border-radius: 4px; font-weight: 900;">★</span>` : ''}
                                                     </div>
-                                                    ${conf.showDescriptions ? `<p style="font-size: 0.85rem; opacity: 0.7; margin: 5px 0 0 0;">Una experiencia artesanal seleccionada cuidadosamente para ti.</p>` : ''}
+                                                    ${conf.showDescriptions ? `<p style="font-size: 0.8rem; opacity: 0.6; margin: 4px 0 0 0;">${p.descripcion || 'Especialidad de la casa.'}</p>` : ''}
                                                 </div>
-                                                <div style="font-weight: 800; color: ${headerColor}; font-size: 1.1rem; border-bottom: 1px dashed #ddd; flex-grow: 1; margin: 0 10px 5px 10px;"></div>
-                                                <div style="font-weight: 800; color: ${headerColor}; font-size: 1.1rem;">$${p.precio.toFixed(2)}</div>
+                                                <div style="font-weight: 800; color: ${headerColor}; font-size: 1rem;">$${p.precio.toFixed(2)}</div>
                                             </div>
                                         `;
                 } else {
-                    // Modern layout
                     return `
-                                            <div style="background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.03); transition: transform 0.3s; ${isFeatured ? `border: 2px solid ${accentColor}40;` : ''}">
-                                                ${conf.showImages ? `<img src="${p.imagen}" style="width: 100%; height: 160px; object-fit: cover;">` : ''}
-                                                <div style="padding: 15px;">
-                                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                                        <span style="font-weight: 700; font-size: 1rem;">${p.nombre}</span>
-                                                        <span style="font-weight: 800; color: ${accentColor};">$${p.precio.toFixed(2)}</span>
+                                            <div style="background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.03); ${isFeatured ? `border: 2px solid ${accentColor}40;` : ''}">
+                                                ${conf.showImages ? `<img src="${p.imagen}" style="width: 100%; height: 120px; object-fit: cover;">` : ''}
+                                                <div style="padding: 12px;">
+                                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                                        <span style="font-weight: 700; font-size: 0.9rem;">${p.nombre}</span>
+                                                        <span style="font-weight: 800; color: ${accentColor}; font-size: 0.9rem;">$${p.precio.toFixed(2)}</span>
                                                     </div>
-                                                    ${conf.showDescriptions ? `<p style="font-size: 0.75rem; opacity: 0.6; line-height: 1.4; margin: 0;">Preparado con los mejores ingredientes de la casa.</p>` : ''}
-                                                    ${isFeatured ? `
-                                                        <div style="margin-top: 10px; display: flex; align-items: center; gap: 5px; color: ${accentColor}; font-size: 0.7rem; font-weight: 700;">
-                                                            <i data-lucide="star" style="width: 10px; fill: ${accentColor}"></i> RECOMENDADO
-                                                        </div>
-                                                    ` : ''}
                                                 </div>
                                             </div>
                                         `;
@@ -359,11 +436,6 @@ const menuView = {
                         </div>
                     `;
         }).join('')}
-
-                <!-- Footer -->
-                <div style="text-align: center; margin-top: 60px; padding-top: 30px; border-top: 1px dashed #eee;">
-                    <p style="font-size: 0.8rem; color: #94a3b8;">Los precios ya incluyen IVA. • Disfruta tu momento ${settings.negocio.nombre}.</p>
-                </div>
             </div>
         `;
     },
@@ -387,7 +459,7 @@ const menuView = {
         const canvas = document.querySelector('#menuQRCode canvas');
         if (canvas) {
             const link = document.createElement('a');
-            link.download = `QR-Menu-${settings.negocio.nombre}.png`;
+            link.download = `QR-Menu-${db.getSettings().negocio.nombre || 'Aromatic'}.png`;
             link.href = canvas.toDataURL();
             link.click();
         }
@@ -399,64 +471,143 @@ const menuView = {
     },
 
     async generatePDF() {
-        const settings = db.getSettings();
-        const content = this.renderMenuMarkup(true);
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = content;
-
-        // Essential styles for a solid capture
-        Object.assign(tempDiv.style, {
-            position: 'fixed',
-            left: '0',
-            top: '0',
-            width: '850px',
-            background: this.menuConfig.theme.backgroundColor || '#ffffff',
-            zIndex: '-9999',
-            opacity: '1',
-            visibility: 'visible'
-        });
-
-        document.body.appendChild(tempDiv);
-
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons({ root: tempDiv });
-        }
-
-        const waitImages = () => {
-            const imgs = Array.from(tempDiv.getElementsByTagName('img'));
-            return Promise.all(imgs.map(img => {
-                if (img.complete) return Promise.resolve();
-                return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
-            }));
-        };
-
-        const opt = {
-            margin: 0,
-            filename: `Menu-${settings.negocio.nombre || 'Digital'}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: {
-                scale: 2,
-                useCORS: true,
-                logging: false,
-                backgroundColor: this.menuConfig.theme.backgroundColor || '#ffffff',
-                windowWidth: 850
-            },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
-
         try {
-            app.showToast('Optimizando diseño del PDF...', 'info');
-            await document.fonts.ready;
-            await waitImages();
-            await new Promise(r => setTimeout(r, 500)); // Layout settle time
+            // 1. Check Library
+            if (typeof html2pdf === 'undefined') {
+                app.showToast('Librería PDF no encontrada. Recargando...', 'error');
+                setTimeout(() => location.reload(), 2000);
+                return;
+            }
 
-            await html2pdf().set(opt).from(tempDiv).save();
-            app.showToast('PDF generado con éxito', 'success');
+            app.showToast('Verificando base de datos...', 'info');
+
+            // 2. Refresh Data
+            this.products = await db.getCollection('productos');
+            this.categories = await db.getCollection('categorias');
+            this.loadConfig();
+
+            if (!this.products || this.products.length === 0) {
+                app.showToast('No hay productos en el catálogo.', 'error');
+                return;
+            }
+
+            // 3. Validate configuration
+            // If no products are selected, we select all as fallback
+            if (!this.menuConfig.includedProducts || this.menuConfig.includedProducts.length === 0) {
+                console.warn('No products included in config, using all products.');
+                this.menuConfig.includedProducts = this.products.map(p => p.id);
+            }
+
+            const included = this.products.filter(p => this.menuConfig.includedProducts.includes(p.id));
+            if (included.length === 0) {
+                // Try selecting all if the previous check didn't catch a mismatch
+                this.menuConfig.includedProducts = this.products.map(p => p.id);
+                const retryIncluded = this.products.filter(p => this.menuConfig.includedProducts.includes(p.id));
+                if (retryIncluded.length === 0) {
+                    app.showToast('Error: No hay productos elegibles para el menú.', 'error');
+                    return;
+                }
+            }
+
+            app.showToast('Construyendo menú premium...', 'info');
+            const settings = db.getSettings();
+            const content = this.renderMenuMarkup(true);
+
+            // 4. Create a Sandbox Iframe for rendering (Isolated from main app styles/conflicts)
+            const iframe = document.createElement('iframe');
+            iframe.style.position = 'fixed';
+            iframe.style.left = '-5000px';
+            iframe.style.top = '0';
+            iframe.style.width = '792px'; // US Letter width in pts (8.25in approx for capture)
+            iframe.style.height = 'auto';
+            document.body.appendChild(iframe);
+
+            const doc = iframe.contentDocument || iframe.contentWindow.document;
+            doc.open();
+            doc.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+                    <style>
+                        body { 
+                            margin: 0; 
+                            padding: 0; 
+                            background: white; 
+                            -webkit-print-color-adjust: exact;
+                        }
+                        * { box-sizing: border-box; }
+                    </style>
+                </head>
+                <body>
+                    <div id="capture-root">
+                        ${content}
+                    </div>
+                </body>
+                </html>
+            `);
+            doc.close();
+
+            // 5. Wait for iframe resources
+            app.showToast('Procesando imágenes y fuentes...', 'info');
+
+            await new Promise((resolve) => {
+                const checkReady = () => {
+                    const imgs = doc.getElementsByTagName('img');
+                    let ready = true;
+                    for (let img of imgs) {
+                        if (!img.complete) ready = false;
+                    }
+                    if (ready) resolve();
+                    else setTimeout(checkReady, 500);
+                };
+
+                // Timeout safety
+                setTimeout(resolve, 5000);
+                iframe.onload = checkReady;
+                checkReady();
+            });
+
+            // 6. Capture and Save
+            app.showToast('Generando archivo PDF...', 'info');
+
+            const opt = {
+                margin: 0,
+                filename: `Menu-Pro-${settings.negocio.nombre || 'Aromatic'}.pdf`,
+                image: { type: 'jpeg', quality: 1.0 },
+                html2canvas: {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: '#ffffff',
+                    scrollY: 0,
+                    scrollX: 0,
+                    logging: false
+                },
+                jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait', compress: true },
+                pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+            };
+
+            // Capture the content from the iframe body using the specific container
+            const captureElement = doc.getElementById('capture-root');
+            await html2pdf().set(opt).from(captureElement).save();
+
+            app.showToast('¡Menú exportado correctamente!', 'success');
+            if (typeof audioService !== 'undefined') audioService.playSuccess();
+
+            // 7. Cleanup
+            setTimeout(() => {
+                if (document.body.contains(iframe)) {
+                    document.body.removeChild(iframe);
+                }
+            }, 5000);
+
         } catch (err) {
-            console.error('PDF error:', err);
-            app.showToast('Error al generar PDF', 'error');
-        } finally {
-            if (document.body.contains(tempDiv)) document.body.removeChild(tempDiv);
+            console.error('PDF CRITICAL FAILURE:', err);
+            app.showToast('Error en generación: ' + err.message, 'error');
+            // Fallback: try simple print
+            if (confirm('La generación avanzada falló. ¿Deseas usar la función de impresión del navegador como alternativa?')) {
+                window.print();
+            }
         }
     }
 };

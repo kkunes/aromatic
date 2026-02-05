@@ -1008,6 +1008,7 @@ const customersView = {
         if (!selectedPromo) selectedPromo = activePromos[0] || { nombre: 'Promoción Especial', descripcion: 'Descuentos exclusivos' };
 
         // 3. Mostrar el Modal Avanzado
+        const settings = db.getSettings();
         const modal = document.getElementById('modalContainer');
         const modalContent = modal.querySelector('.modal-content');
 

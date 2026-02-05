@@ -408,7 +408,10 @@ const inventoryView = {
                                 </button>
                                 <input type="file" id="fileInProd" hidden accept="image/*" onchange="inventoryView.handleImageUpload(this)">
                             </div>
-                            <small style="color: var(--text-muted); display: block; margin-top: 5px;">Las imágenes se comprimen automáticamente para mayor velocidad.</small>
+                        </div>
+                        <div class="input-group" style="grid-column: span 2;">
+                            <label>Descripción para el Menú</label>
+                            <textarea id="prodDescripcion" class="large-input" style="height: 80px; padding: 12px; font-size: 0.9rem; resize: none;" placeholder="Escribe una descripción atractiva para el menú digital y PDF...">${isEdit ? (producto.descripcion || '') : ''}</textarea>
                         </div>
                     </div>
 
@@ -516,6 +519,7 @@ const inventoryView = {
                 categoria: document.getElementById('prodCategoria').value,
                 precio: parseFloat(document.getElementById('prodPrecio').value),
                 imagen: document.getElementById('prodImagen').value || undefined,
+                descripcion: document.getElementById('prodDescripcion').value.trim() || undefined,
                 insumos: toggleRecipe.checked ? recipeItems : []
             };
 
