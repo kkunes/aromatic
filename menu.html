@@ -235,152 +235,562 @@
         </div>
     </div>
 
-    <script>
-        // Use the config from firebase-config.js (inline here as it's a stand-alone page)
-        const firebaseConfig = {
-            apiKey: "AIzaSyAZtdsNHHChRhjSzh0DpH3IJkl1xfQZXqw",
-            authDomain: "pos-cafeteria-8a905.firebaseapp.com",
-            projectId: "pos-cafeteria-8a905",
-            storageBucket: "pos-cafeteria-8a905.firebasestorage.app",
-            messagingSenderId: "200789628092",
-            appId: "1:200789628092:web:d5922ad084ecd74793acb9"
-        };
+    <style>
+        :root {
+            --primary: #4b3621;
+            --accent: #e2965d;
+            --bg: #fdfaf6;
+            --text: #2d231a;
+            --font: 'Playfair Display', serif;
+        }
 
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Outfit', sans-serif;
+            line-height: 1.6;
+            transition: background 0.5s ease;
+            scroll-behavior: smooth;
+        }
 
-        async function loadMenu() {
-            try {
-                // Fetch Data from Firestore
-                const configSnap = await db.collection('menu_config').get();
-                const productsSnap = await db.collection('productos').get();
-                const categoriesSnap = await db.collection('categorias').get();
-                const settingsSnap = await db.collection('settings').get();
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px 100px;
+        }
 
-                if (configSnap.empty) {
-                    renderError("Menú no configurado. Por favor, realiza cambios en el sistema y guarda la configuración.");
-                    return;
-                }
+        /* Sticky Category Bar */
+        .category-nav {
+            position: sticky;
+            top: 0;
+            background: var(--bg);
+            z-index: 100;
+            padding: 15px 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+            overflow-x: auto;
+            display: flex;
+            gap: 15px;
+            white-space: nowrap;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+            backdrop-filter: blur(10px);
+            background: rgba(253, 250, 246, 0.9);
+        }
 
-                const config = configSnap.docs[0].data();
-                const products = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                const categories = categoriesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                const settings = settingsSnap.empty ? { negocio: { nombre: 'Nuestra Carta', eslogan: 'Sabor con Alma & Corazón', logo: 'recursos/logo efimero.png' } } : settingsSnap.docs[0].data();
+        .category-nav::-webkit-scrollbar {
+            display: none;
+        }
 
-                renderMenu(config, products, categories, settings);
+        .nav-item {
+            padding: 8px 18px;
+            border-radius: 20px;
+            background: white;
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 700;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid transparent;
+        }
 
-            } catch (err) {
-                console.error(err);
-                // Fallback to localStorage if possible (for quick testing)
-                const localConfig = localStorage.getItem('aromatic_menu_config');
-                const localSettings = JSON.parse(localStorage.getItem('aromatic_settings') || '{}');
-                if (localConfig) {
-                    renderMenu(JSON.parse(localConfig), [], [], localSettings);
-                } else {
-                    renderError("Hubo un problema al cargar el menú digital. Revisa tu conexión.");
-                }
+        .nav-item i {
+            width: 16px;
+            height: 16px;
+        }
+
+        .nav-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+            border-color: var(--accent);
+        }
+
+        .nav-item.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeIn 0.8s forwards;
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
             }
         }
 
-        function renderMenu(config, products, categories, settings) {
-            // Update UI Theme
-            document.documentElement.style.setProperty('--primary', config.theme.primaryColor);
-            document.documentElement.style.setProperty('--accent', config.theme.secondaryColor);
-            document.documentElement.style.setProperty('--bg', config.theme.backgroundColor);
-            document.documentElement.style.setProperty('--text', config.theme.textColor);
-            document.documentElement.style.setProperty('--font', config.theme.fontFamily);
-            document.body.style.backgroundColor = config.theme.backgroundColor;
+        .logo {
+            width: 90px;
+            margin-bottom: 20px;
+            filter: drop-shadow(0 5px 15px rgba(0, 0, 0, 0.1));
+            border-radius: 50%;
+        }
 
-            const biz = settings.negocio || { nombre: 'Nuestra Carta', eslogan: 'Sabor con Alma & Corazón', logo: 'recursos/logo efimero.png' };
-            document.title = `${biz.nombre} - Menú Digital`;
+        .title {
+            font-family: var(--font);
+            font-size: 3.5rem;
+            margin: 0;
+            color: var(--primary);
+            line-height: 1.1;
+        }
 
-            const included = products.filter(p => config.includedProducts.includes(p.id));
-            const groups = {};
-            included.forEach(p => {
-                if (!groups[p.categoria]) groups[p.categoria] = [];
-                groups[p.categoria].push(p);
-            });
+        .divider {
+            width: 80px;
+            height: 3px;
+            background: var(--accent);
+            margin: 25px auto;
+            border-radius: 2px;
+        }
 
-            let html = `
+        .subtitle {
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--primary);
+            opacity: 0.6;
+        }
+
+        .category-section {
+            padding-top: 80px;
+            /* Offset for sticky nav */
+            margin-top: -80px;
+        }
+
+        .category-title {
+            font-family: var(--font);
+            font-size: 2.2rem;
+            color: var(--primary);
+            border-bottom: 2px solid rgba(0, 0, 0, 0.05);
+            padding-bottom: 15px;
+            margin: 0 0 35px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .category-title i {
+            color: var(--accent);
+        }
+
+        /* Grid Layout */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 35px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 28px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.04);
+            transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+            opacity: 0;
+            animation: fadeIn 0.5s forwards;
+            position: relative;
+            border: 1px solid rgba(0, 0, 0, 0.02);
+        }
+
+        .card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-img-container {
+            position: relative;
+            overflow: hidden;
+            height: 220px;
+        }
+
+        .card-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.6s ease;
+        }
+
+        .card:hover .card-img {
+            transform: scale(1.1);
+        }
+
+        .card-body {
+            padding: 25px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .name {
+            font-weight: 700;
+            font-size: 1.25rem;
+            color: var(--primary);
+            flex: 1;
+        }
+
+        .price {
+            font-weight: 800;
+            color: var(--accent);
+            font-size: 1.3rem;
+            margin-left: 10px;
+        }
+
+        .desc {
+            font-size: 0.95rem;
+            opacity: 0.6;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        /* List Layout */
+        .list-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding: 10px 0;
+            border-bottom: 1px dashed rgba(0, 0, 0, 0.1);
+            opacity: 0;
+            animation: fadeIn 0.5s forwards;
+        }
+
+        .list-info {
+            flex: 1;
+        }
+
+        .list-dots {
+            border-bottom: 2px dotted rgba(0, 0, 0, 0.1);
+            flex: 1;
+            margin: 0 15px 8px 15px;
+        }
+
+        .featured-badge {
+            background: var(--accent);
+            color: white;
+            font-size: 0.65rem;
+            padding: 3px 10px;
+            border-radius: 8px;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-left: 10px;
+            vertical-align: middle;
+            box-shadow: 0 4px 10px rgba(226, 150, 93, 0.4);
+        }
+
+        .loader {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 80vh;
+            color: var(--primary);
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(75, 54, 33, 0.1);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 25px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .bottom-info {
+            text-align: center;
+            margin-top: 100px;
+            padding: 50px 20px;
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+            background: white;
+            border-radius: 40px 40px 0 0;
+            margin-left: -20px;
+            margin-right: -20px;
+        }
+
+        @media (max-width: 600px) {
+            .title {
+                font-size: 2.5rem;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                padding-top: 20px;
+            }
+
+            .category-title {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+    </head>
+
+    <body>
+        <div class="container" id="menu-content">
+            <div class="loader">
+                <div class="spinner"></div>
+                <p style="font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 0.9rem;">
+                    Preparando delicias...</p>
+            </div>
+        </div>
+
+        <!-- Firebase SDKs -->
+        <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+
+        <!-- Load Configuration From External File (Security Improvement) -->
+        <script src="js/firebase-config.js"></script>
+
+        <script>
+            // Check if firebase was initialized by firebase-config.js
+            if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
+                const db = firebase.firestore();
+                loadMenu(db);
+            } else {
+                renderError("No se pudo conectar con el servidor. Revisa tu conexión.");
+            }
+
+            async function loadMenu(db) {
+                try {
+                    // Fetch Data from Firestore
+                    const configSnap = await db.collection('menu_config').get();
+                    const productsSnap = await db.collection('productos').get();
+                    const categoriesSnap = await db.collection('categorias').get();
+                    const settingsSnap = await db.collection('settings').get();
+
+                    if (configSnap.empty) {
+                        renderError("Menú no configurado. Por favor, realiza cambios en el sistema y guarda la configuración.");
+                        return;
+                    }
+
+                    const config = configSnap.docs[0].data();
+                    const products = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const categories = categoriesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const settings = settingsSnap.empty ? { negocio: { nombre: 'Nuestra Carta', eslogan: 'Sabor con Alma & Corazón', logo: 'recursos/logo efimero.png' } } : settingsSnap.docs[0].data();
+
+                    renderMenu(config, products, categories, settings);
+
+                } catch (err) {
+                    console.error(err);
+                    // Fallback to localStorage if possible
+                    const localConfig = localStorage.getItem('aromatic_menu_config');
+                    const localSettings = JSON.parse(localStorage.getItem('aromatic_settings') || '{}');
+                    if (localConfig) {
+                        renderMenu(JSON.parse(localConfig), [], [], localSettings);
+                    } else {
+                        renderError("Hubo un problema al cargar el menú digital. Revisa tu conexión.");
+                    }
+                }
+            }
+
+            function renderMenu(config, products, categories, settings) {
+                // Update UI Theme
+                const theme = config.theme || {};
+                document.documentElement.style.setProperty('--primary', theme.primaryColor || '#4b3621');
+                document.documentElement.style.setProperty('--accent', theme.secondaryColor || '#e2965d');
+                document.documentElement.style.setProperty('--bg', theme.backgroundColor || '#fdfaf6');
+                document.documentElement.style.setProperty('--text', theme.textColor || '#2d231a');
+                document.documentElement.style.setProperty('--font', theme.fontFamily || "'Playfair Display', serif");
+                document.body.style.backgroundColor = theme.backgroundColor || '#fdfaf6';
+
+                const biz = settings.negocio || { nombre: 'Nuestra Carta', eslogan: 'Sabor con Alma & Corazón', logo: 'recursos/logo efimero.png' };
+                document.title = `${biz.nombre} - Menú Digital`;
+
+                const included = products.filter(p => config.includedProducts.includes(p.id));
+                const groups = {};
+                included.forEach(p => {
+                    if (!groups[p.categoria]) groups[p.categoria] = [];
+                    groups[p.categoria].push(p);
+                });
+
+                // Filter active categories that have products
+                const activeCats = categories
+                    .sort((a, b) => (a.orden || 0) - (b.orden || 0))
+                    .filter(cat => groups[cat.nombre] && groups[cat.nombre].length > 0);
+
+                let html = `
                 <div class="header">
-                    <img src="${biz.logo}" class="logo">
+                    <img src="${biz.logo}" class="logo" onerror="this.src='recursos/logo efimero.png'">
                     <h1 class="title">${biz.nombre}</h1>
                     <div class="divider"></div>
                     <p class="subtitle">${biz.eslogan}</p>
                 </div>
+
+                <div class="category-nav">
+                    ${activeCats.map(cat => `
+                        <a href="#cat-${cat.id}" class="nav-item">
+                            <i data-lucide="${cat.icono || 'coffee'}"></i>
+                            ${cat.nombre}
+                        </a>
+                    `).join('')}
+                </div>
             `;
 
-            categories.sort((a, b) => (a.orden || 0) - (b.orden || 0)).forEach(cat => {
-                const group = groups[cat.nombre];
-                if (!group || group.length === 0) return;
+                activeCats.forEach(cat => {
+                    const group = groups[cat.nombre];
 
-                html += `
-                    <h2 class="category-title">
-                        <i data-lucide="${cat.icono || 'coffee'}"></i>
-                        ${cat.nombre}
-                    </h2>
+                    html += `
+                    <div class="category-section" id="cat-${cat.id}">
+                        <h2 class="category-title">
+                            <i data-lucide="${cat.icono || 'coffee'}"></i>
+                            ${cat.nombre}
+                        </h2>
                 `;
 
-                if (config.theme.layout === 'modern') {
-                    html += `<div class="grid">`;
-                    group.forEach((p, i) => {
-                        const isFeatured = config.featuredProducts.includes(p.id);
-                        html += `
+                    if (config.theme.layout === 'modern') {
+                        html += `<div class="grid">`;
+                        group.forEach((p, i) => {
+                            const isFeatured = config.featuredProducts.includes(p.id);
+                            html += `
                             <div class="card" style="animation-delay: ${i * 0.1}s">
-                                ${config.showImages ? `<img src="${p.imagen}" class="card-img" onerror="this.src='https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=500'">` : ''}
+                                ${config.showImages ? `
+                                    <div class="card-img-container">
+                                        <img src="${p.imagen}" class="card-img" onerror="this.src='https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=500'">
+                                    </div>
+                                ` : ''}
                                 <div class="card-body">
                                     <div class="card-header">
-                                        <span class="name">${p.nombre} ${isFeatured ? '<span class="featured-badge">Top</span>' : ''}</span>
+                                        <span class="name">${p.nombre} ${isFeatured ? '<span class="featured-badge">TOP</span>' : ''}</span>
                                         <span class="price">$${p.precio.toFixed(2)}</span>
                                     </div>
-                                    ${config.showDescriptions ? `<p class="desc">${p.descripcion || 'Una experiencia artesanal única preparada al momento.'}</p>` : ''}
+                                    ${config.showDescriptions ? `<p class="desc">${p.descripcion || 'Preparado con ingredientes frescos y calidad premium.'}</p>` : ''}
                                 </div>
                             </div>
                         `;
-                    });
-                    html += `</div>`;
-                } else {
-                    html += `<div>`;
-                    group.forEach((p, i) => {
-                        const isFeatured = config.featuredProducts.includes(p.id);
-                        html += `
+                        });
+                        html += `</div>`;
+                    } else {
+                        html += `<div class="list-container">`;
+                        group.forEach((p, i) => {
+                            const isFeatured = config.featuredProducts.includes(p.id);
+                            html += `
                             <div class="list-item" style="animation-delay: ${i * 0.05}s">
                                 <div class="list-info">
-                                    <div class="name">${p.nombre} ${isFeatured ? '<span class="featured-badge">Top</span>' : ''}</div>
+                                    <div class="name">${p.nombre} ${isFeatured ? '<span class="featured-badge">TOP</span>' : ''}</div>
                                     ${config.showDescriptions ? `<p class="desc">${p.descripcion || 'Especialidad de la casa.'}</p>` : ''}
                                 </div>
                                 <div class="list-dots"></div>
                                 <div class="price">$${p.precio.toFixed(2)}</div>
                             </div>
                         `;
+                        });
+                        html += `</div>`;
+                    }
+
+                    html += `</div>`; // Close category-section
+                });
+
+                html += `
+                <div class="bottom-info">
+                    <p style="font-size: 0.95rem; opacity: 0.7;">Precios en Moneda Local. IVA incluido.</p>
+                    <p style="font-weight: 800; color: var(--primary); margin-top: 15px; letter-spacing: 1px;">GRACIAS POR SU PREFERENCIA</p>
+                    <div style="margin-top: 30px; opacity: 0.3;">
+                        <img src="${biz.logo}" style="width: 40px; filter: grayscale(1);">
+                    </div>
+                </div>
+            `;
+
+                document.getElementById('menu-content').innerHTML = html;
+                lucide.createIcons();
+
+                // Intersection Observer for Active Tab
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const id = entry.target.id;
+                            document.querySelectorAll('.nav-item').forEach(item => {
+                                item.classList.toggle('active', item.getAttribute('href') === `#${id}`);
+                            });
+                            // Scroll nav to active item
+                            const activeItem = document.querySelector(`.nav-item[href="#${id}"]`);
+                            if (activeItem) {
+                                activeItem.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                            }
+                        }
                     });
-                    html += `</div>`;
-                }
-            });
+                }, { threshold: 0.5 });
 
-            html += `
-                <div style="text-align: center; margin-top: 80px; padding-top: 40px; border-top: 1px dashed rgba(0,0,0,0.1); opacity: 0.5;">
-                    <p style="font-size: 0.9rem;">Precios sujetos a cambios sin previo aviso. • IVA incluido.</p>
-                    <p style="font-size: 0.8rem; font-weight: 700; margin-top: 10px;">${biz.nombre} POS Premium Experience</p>
-                </div>
-            `;
+                document.querySelectorAll('.category-section').forEach(section => observer.observe(section));
 
-            document.getElementById('menu-content').innerHTML = html;
-            lucide.createIcons();
-        }
+                // Back to Top Button
+                const topBtn = document.createElement('button');
+                topBtn.innerHTML = '<i data-lucide="arrow-up"></i>';
+                topBtn.id = 'backToTop';
+                topBtn.style.cssText = `
+                    position: fixed;
+                    bottom: 30px;
+                    right: 30px;
+                    width: 50px;
+                    height: 50px;
+                    border-radius: 50%;
+                    background: var(--primary);
+                    color: white;
+                    border: none;
+                    cursor: pointer;
+                    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+                    display: none;
+                    z-index: 1000;
+                    align-items: center;
+                    justify-content: center;
+                    transition: all 0.3s ease;
+                `;
+                document.body.appendChild(topBtn);
+                lucide.createIcons();
 
-        function renderError(msg) {
-            document.getElementById('menu-content').innerHTML = `
+                window.addEventListener('scroll', () => {
+                    if (window.scrollY > 500) {
+                        topBtn.style.display = 'flex';
+                    } else {
+                        topBtn.style.display = 'none';
+                    }
+                });
+
+                topBtn.onclick = () => window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+            }
+
+            function renderError(msg) {
+                document.getElementById('menu-content').innerHTML = `
                 <div style="text-align:center; padding: 100px 20px;">
-                    <h2 style="font-family:'Playfair Display', serif;">${document.title.split(' - ')[0]}</h2>
-                    <p>${msg}</p>
-                    <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px; border-radius: 10px; border: none; background: var(--primary); color: white; font-weight: 700;">REINTENTAR</button>
+                    <div style="font-size: 4rem; margin-bottom: 20px;">☕</div>
+                    <h2 style="font-family:'Playfair Display', serif; color: var(--primary);">¡Vaya! Algo ocurrió</h2>
+                    <p style="opacity: 0.7; max-width: 300px; margin: 0 auto;">${msg}</p>
+                    <button onclick="location.reload()" style="margin-top: 30px; padding: 15px 35px; border-radius: 20px; border: none; background: var(--primary); color: white; font-weight: 700; cursor: pointer; box-shadow: 0 10px 20px rgba(0,0,0,0.1);">REINTENTAR</button>
                 </div>
             `;
-        }
+            }
+        </script>
+    </body>
 
-        loadMenu();
-    </script>
-</body>
 
 </html>

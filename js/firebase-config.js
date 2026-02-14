@@ -1,4 +1,13 @@
-// Firebase Configuration - Replace with your own project credentials
+/**
+ * Firebase Configuration - Aromatic POS
+ * 
+ * SECURITY NOTE:
+ * The 'apiKey' in Firebase is NOT a secret like a private key. It is meant to be 
+ * used in the browser. However, to keep your system SECURE, you MUST:
+ * 1. Restrict this key in the Google Cloud Console (HTTP Referrers).
+ * 2. Configure Firebase Security Rules for Firestore to prevent unauthorized access.
+ */
+
 const firebaseConfig = {
     apiKey: "AIzaSyAZtdsNHHChRhjSzh0DpH3IJkl1xfQZXqw",
     authDomain: "pos-cafeteria-8a905.firebaseapp.com",
@@ -8,21 +17,24 @@ const firebaseConfig = {
     appId: "1:200789628092:web:d5922ad084ecd74793acb9"
 };
 
-// Initialize Firebase
+// Global initialization
 if (typeof firebase !== 'undefined') {
-    firebase.initializeApp(firebaseConfig);
+    // Check if already initialized to avoid errors on hot reload or multiple inclusions
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
 
-    // Enable offline persistence
-    firebase.firestore().enablePersistence()
-        .catch((err) => {
-            if (err.code == 'failed-precondition') {
-                console.warn("Multiple tabs open, persistence can only be enabled in one tab at a time.");
-            } else if (err.code == 'unimplemented') {
-                console.warn("The current browser doesn't support all of the features necessary to enable persistence");
-            }
-        });
+        // Enable offline persistence for better user experience
+        firebase.firestore().enablePersistence()
+            .catch((err) => {
+                if (err.code == 'failed-precondition') {
+                    console.warn("Múltiples pestañas abiertas, la persistencia solo puede activarse en una a la vez.");
+                } else if (err.code == 'unimplemented') {
+                    console.warn("El navegador actual no soporta todas las características de persistencia.");
+                }
+            });
 
-    console.log("Firebase initialized with offline persistence");
+        console.log("🔥 Firebase initialized (Offline Mode Active)");
+    }
 } else {
-    console.warn("Firebase scripts not loaded or offline mode");
+    console.warn("Firebase SDK no cargado. El sistema operará en modo local/mock.");
 }
