@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aromatic-pos-v2';
+const CACHE_NAME = 'aromatic-pos-v3';
 const ASSETS = [
     './',
     './index.html',
@@ -21,6 +21,7 @@ const ASSETS = [
     './js/views/settings.js',
     './js/views/ticket.js',
     './js/views/tables.js',
+    './menu.html',
     './recursos/logo efimero.png',
     'https://unpkg.com/lucide@latest',
     'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap'
