@@ -260,23 +260,34 @@
             padding: 40px 20px 100px;
         }
 
-        /* Sticky Category Bar */
-        .category-nav {
+        /* Sticky Category Bar Wrapper for Effects */
+        .category-nav-wrapper {
             position: sticky;
             top: 0;
-            background: var(--bg);
             z-index: 100;
-            padding: 15px 0;
+            background: var(--bg);
+            margin-bottom: 25px;
             border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-            margin-bottom: 20px;
+            /* Edge Fade Effect */
+            mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+            -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+        }
+
+        .category-nav {
+            padding: 15px 15px;
             overflow-x: auto;
             display: flex;
-            gap: 15px;
+            gap: 12px;
             white-space: nowrap;
             -ms-overflow-style: none;
             scrollbar-width: none;
             backdrop-filter: blur(10px);
-            background: rgba(253, 250, 246, 0.9);
+            background: rgba(253, 250, 246, 0.85);
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+            /* Smooth inertia on iOS */
+            /* Ensure items can clip at the end */
+            scroll-padding: 20px;
         }
 
         .category-nav::-webkit-scrollbar {
@@ -644,13 +655,15 @@
                     <p class="subtitle">${biz.eslogan}</p>
                 </div>
 
-                <div class="category-nav">
-                    ${activeCats.map(cat => `
-                        <a href="#cat-${cat.id}" class="nav-item">
-                            <i data-lucide="${cat.icono || 'coffee'}"></i>
-                            ${cat.nombre}
-                        </a>
-                    `).join('')}
+                <div class="category-nav-wrapper">
+                    <div class="category-nav">
+                        ${activeCats.map(cat => `
+                            <a href="#cat-${cat.id}" class="nav-item">
+                                <i data-lucide="${cat.icono || 'coffee'}"></i>
+                                ${cat.nombre}
+                            </a>
+                        `).join('')}
+                    </div>
                 </div>
             `;
 
