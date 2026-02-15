@@ -288,6 +288,30 @@
             /* Smooth inertia on iOS */
             /* Ensure items can clip at the end */
             scroll-padding: 20px;
+            position: relative;
+        }
+
+        /* Peek Animation to hint scroll */
+        @keyframes categoryPeek {
+            0% {
+                transform: translateX(0);
+            }
+
+            40% {
+                transform: translateX(-60px);
+            }
+
+            70% {
+                transform: translateX(5px);
+            }
+
+            100% {
+                transform: translateX(0);
+            }
+        }
+
+        .peek-animation {
+            animation: categoryPeek 1.2s cubic-bezier(0.645, 0.045, 0.355, 1) forwards;
         }
 
         .category-nav::-webkit-scrollbar {
@@ -733,6 +757,20 @@
 
                 document.getElementById('menu-content').innerHTML = html;
                 lucide.createIcons();
+
+                // 🌟 Elegant Scroll-Hint Logic
+                const nav = document.querySelector('.category-nav');
+                if (nav && nav.scrollWidth > nav.clientWidth) {
+                    // Trigger "Peek" animation after a slight delay
+                    setTimeout(() => {
+                        nav.classList.add('peek-animation');
+                    }, 1000);
+
+                    // Stop animation if user interacts
+                    const stopHint = () => nav.classList.remove('peek-animation');
+                    nav.addEventListener('touchstart', stopHint, { once: true });
+                    nav.addEventListener('mousedown', stopHint, { once: true });
+                }
 
                 // Intersection Observer for Active Tab
                 const observer = new IntersectionObserver((entries) => {
