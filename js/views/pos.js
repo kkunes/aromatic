@@ -8,10 +8,44 @@ const posView = {
         this.filteredProducts = [...this.products];
 
         return `
+            <style>
+                .category-filters .chip {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 12px 20px;
+                    border-radius: 14px;
+                    font-weight: 700;
+                    cursor: pointer;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    white-space: nowrap;
+                    background: white;
+                    border: 1px solid #f1f5f9;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+                    color: #64748b;
+                }
+                .category-filters .chip:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+                    border-color: var(--primary-light);
+                }
+                .category-filters .chip.active {
+                    background: var(--primary);
+                    color: white;
+                    border-color: var(--primary);
+                    box-shadow: 0 10px 20px rgba(75, 54, 33, 0.2);
+                }
+            </style>
             <div class="pos-container fade-in">
-                <div class="category-filters">
-                    <div class="chip active" data-category="all">Todos</div>
-                    ${dbCategories.map(cat => `<div class="chip" data-category="${cat.nombre}">${cat.nombre}</div>`).join('')}
+                <div class="category-filters hide-scrollbar" style="display: flex; gap: 12px; overflow-x: auto; padding: 5px 2px 15px 2px; margin-bottom: 20px;">
+                    <div class="chip active" data-category="all">
+                        <i data-lucide="layout-grid" style="width: 18px;"></i> Todos
+                    </div>
+                    ${dbCategories.map(cat => `
+                        <div class="chip" data-category="${cat.nombre}">
+                            <i data-lucide="${cat.icono || 'package'}" style="width: 18px;"></i> ${cat.nombre}
+                        </div>
+                    `).join('')}
                 </div>
                 <div class="product-grid" id="productGrid">
                     ${this.renderProducts(this.filteredProducts)}

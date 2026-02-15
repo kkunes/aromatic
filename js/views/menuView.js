@@ -65,7 +65,10 @@ const menuView = {
                             ${this.categories.map(cat => `
                                 <div style="margin-bottom: 35px;">
                                     <h3 style="font-family: 'Playfair Display', serif; color: var(--primary); border-left: 4px solid var(--accent); padding-left: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
-                                        ${cat.nombre}
+                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                            <i data-lucide="${cat.icono || 'package'}" style="width: 20px; color: var(--accent);"></i>
+                                            ${cat.nombre}
+                                        </div>
                                         <label style="font-size: 0.8rem; font-family: 'Outfit', sans-serif; cursor: pointer; display: flex; align-items: center; gap: 5px;">
                                             <input type="checkbox" onchange="menuView.toggleCategory('${cat.nombre}', this.checked)" style="accent-color: var(--accent);"> Seleccionar Todo
                                         </label>

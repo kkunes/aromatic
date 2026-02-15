@@ -3,6 +3,8 @@ const inventoryView = {
     insumos: [],
     categorias: [],
     filterQuery: '',
+    selectedCategoryIcon: 'package',
+    editingCategoryId: null,
 
     async render() {
         this.productos = await db.getCollection('productos');
@@ -64,9 +66,14 @@ const inventoryView = {
                                         </div>
                                     </td>
                                     <td>
-                                        <span class="badge" style="background: ${this.getCategoryColor(p.categoria, 0.1)}; color: ${this.getCategoryColor(p.categoria, 1)};">
-                                            ${p.categoria}
-                                        </span>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <div style="width: 28px; height: 28px; background: ${this.getCategoryColor(p.categoria, 0.1)}; color: ${this.getCategoryColor(p.categoria, 1)}; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                                <i data-lucide="${this.categorias.find(c => c.nombre === p.categoria)?.icono || 'package'}" style="width: 14px;"></i>
+                                            </div>
+                                            <span class="badge" style="background: ${this.getCategoryColor(p.categoria, 0.1)}; color: ${this.getCategoryColor(p.categoria, 1)}; margin: 0;">
+                                                ${p.categoria}
+                                            </span>
+                                        </div>
                                     </td>
                                     <td style="font-weight: 700;">$${p.precio.toFixed(2)}</td>
                                     <td>
@@ -146,9 +153,14 @@ const inventoryView = {
                                         </div>
                                     </td>
                                     <td>
-                                        <span class="badge" style="background: ${this.getCategoryColor(p.categoria, 0.1)}; color: ${this.getCategoryColor(p.categoria, 1)};">
-                                            ${p.categoria}
-                                        </span>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <div style="width: 28px; height: 28px; background: ${this.getCategoryColor(p.categoria, 0.1)}; color: ${this.getCategoryColor(p.categoria, 1)}; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                                <i data-lucide="${this.categorias.find(c => c.nombre === p.categoria)?.icono || 'package'}" style="width: 14px;"></i>
+                                            </div>
+                                            <span class="badge" style="background: ${this.getCategoryColor(p.categoria, 0.1)}; color: ${this.getCategoryColor(p.categoria, 1)}; margin: 0;">
+                                                ${p.categoria}
+                                            </span>
+                                        </div>
                                     </td>
                                     <td style="font-weight: 700;">$${p.precio.toFixed(2)}</td>
                                     <td>
@@ -219,65 +231,135 @@ const inventoryView = {
         if (catBtn) catBtn.onclick = () => this.showCategoriesModal();
     },
 
-    async showCategoriesModal() {
+    async showCategoriesModal(id = null) {
         const modal = document.getElementById('modalContainer');
         const modalContent = modal.querySelector('.modal-content');
         this.categorias = await db.getCollection('categorias');
 
+        this.editingCategoryId = id;
+        const currentCat = id ? this.categorias.find(c => c.id === id) : null;
+        this.selectedCategoryIcon = currentCat ? (currentCat.icono || 'package') : 'package';
+
+        // Catálogo de iconos Lucide recomendados para el sistema
+        const iconCatalog = [
+            'package', 'coffee', 'cup-soda', 'beer', 'glass-water', 'utensils',
+            'pizza', 'burger', 'sandwich', 'soup', 'beef', 'fish', 'egg',
+            'cake', 'ice-cream', 'cookie', 'donut', 'croissant', 'candy',
+            'apple', 'cherry', 'grape', 'strawberry', 'carrot', 'leaf',
+            'star', 'flame', 'sparkles', 'heart', 'shopping-bag', 'gift'
+        ];
+
         modalContent.innerHTML = `
-            <div class="categories-modal" style="width: 450px; max-width: 95vw;">
+            <div class="categories-modal" style="width: 500px; max-width: 95vw;">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
-                    <h2 style="margin: 0; display: flex; align-items: center; gap: 10px;">
+                    <h2 style="margin: 0; display: flex; align-items: center; gap: 10px; font-family: 'Playfair Display', serif;">
                         <i data-lucide="tag" style="color: var(--primary);"></i>
-                        Gestionar Categorías
+                        ${id ? 'Editar Categoría' : 'Gestionar Categorías'}
                     </h2>
                     <button class="btn-icon-small" id="closeCatModal">
                         <i data-lucide="x"></i>
                     </button>
                 </div>
 
-                <div style="margin-bottom: 20px;">
-                    <div style="display: flex; gap: 8px;">
-                        <input type="text" id="newCategoryName" placeholder="Nueva categoría..." class="large-input" style="padding: 10px; font-size: 0.95rem; flex: 1;">
-                        <button class="btn-primary" id="addCatBtnSave" style="padding: 0 15px;">
-                            <i data-lucide="plus"></i>
-                        </button>
+                <div class="card" style="margin-bottom: 25px; padding: 20px; border: 1px solid #f1f5f9; background: #fafafa;">
+                    <div class="input-group">
+                        <label style="font-size: 0.8rem; font-weight: 700; margin-bottom: 8px; display: block; color: var(--text-muted);">NOMBRE DE LA CATEGORÍA</label>
+                        <input type="text" id="newCategoryName" value="${currentCat ? currentCat.nombre : ''}" placeholder="Ej: Bebidas Frías, Postres..." class="large-input" style="padding: 12px; font-size: 1rem; width: 100%;">
+                    </div>
+                    
+                    <label style="font-size: 0.8rem; font-weight: 700; margin: 15px 0 10px 0; display: block; color: var(--text-muted);">SELECCIONAR ICONO</label>
+                    <div id="iconSelectorGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 8px; max-height: 150px; overflow-y: auto; padding: 10px; background: white; border-radius: 12px; border: 1px solid #e2e8f0;" class="hide-scrollbar">
+                        ${iconCatalog.map(icon => `
+                            <div class="icon-option ${this.selectedCategoryIcon === icon ? 'selected' : ''}" 
+                                 onclick="inventoryView.selectCategoryIcon('${icon}')"
+                                 data-icon="${icon}"
+                                 style="width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; border: 2px solid transparent;">
+                                <i data-lucide="${icon}" style="width: 20px;"></i>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div style="margin-top: 20px; display: flex; gap: 10px;">
+                        ${id ? `
+                            <button class="btn-secondary" onclick="inventoryView.showCategoriesModal()" style="flex: 1;">Cancelar Edición</button>
+                            <button class="btn-primary" id="saveCatBtn" style="flex: 2;">GUARDAR CAMBIOS</button>
+                        ` : `
+                            <button class="btn-primary" id="addCatBtnSave" style="width: 100%; height: 50px; border-radius: 14px; font-weight: 800;">
+                                <i data-lucide="plus"></i> AÑADIR NUEVA CATEGORÍA
+                            </button>
+                        `}
                     </div>
                 </div>
 
-                <div id="modalCategoriesList" class="hide-scrollbar" style="display: flex; flex-direction: column; gap: 10px; max-height: 350px; overflow-y: auto;">
+                <div id="modalCategoriesList" class="hide-scrollbar" style="display: flex; flex-direction: column; gap: 10px; max-height: 300px; overflow-y: auto;">
+                    <h3 style="font-size: 0.85rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Categorías Actuales</h3>
                     ${this.categorias.map(cat => `
-                        <div style="display: flex; align-items: center; justify-content: space-between; background: #f8f8f8; padding: 15px; border-radius: 12px; border: 1px solid #eee;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; background: white; padding: 12px 16px; border-radius: 16px; border: 1px solid #f1f5f9; transition: all 0.2s;">
                             <div style="display: flex; align-items: center; gap: 12px;">
-                                <div style="width: 32px; height: 32px; background: rgba(75, 54, 33, 0.05); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                                    <i data-lucide="package" style="width: 16px; color: var(--primary);"></i>
+                                <div style="width: 40px; height: 40px; background: rgba(75, 54, 33, 0.05); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--primary);">
+                                    <i data-lucide="${cat.icono || 'package'}" style="width: 20px;"></i>
                                 </div>
-                                <span style="font-weight: 500;">${cat.nombre}</span>
+                                <span style="font-weight: 700; color: var(--primary);">${cat.nombre}</span>
                             </div>
-                            <button class="btn-icon-small danger" onclick="inventoryView.deleteCategory('${cat.id}')">
-                                <i data-lucide="trash-2" style="width: 14px;"></i>
-                            </button>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn-icon-small" onclick="inventoryView.showCategoriesModal('${cat.id}')" title="Editar">
+                                    <i data-lucide="edit-3" style="width: 16px;"></i>
+                                </button>
+                                <button class="btn-icon-small danger" onclick="inventoryView.deleteCategory('${cat.id}')" title="Eliminar">
+                                    <i data-lucide="trash-2" style="width: 16px;"></i>
+                                </button>
+                            </div>
                         </div>
                     `).join('')}
                 </div>
             </div>
+
+            <style>
+                .icon-option:hover { background: #f8fafc; border-color: #e2e8f0; }
+                .icon-option.selected { background: var(--primary); color: white; border-color: var(--primary); box-shadow: 0 4px 10px rgba(75, 54, 33, 0.2); }
+            </style>
         `;
 
         if (typeof lucide !== 'undefined') lucide.createIcons();
         modal.classList.remove('hidden');
-        audioService.playPop(); // Premium sound
+        if (!id) audioService.playPop(); // Solo sonar si no es edición
 
         document.getElementById('closeCatModal').onclick = () => modal.classList.add('hidden');
 
-        document.getElementById('addCatBtnSave').onclick = async () => {
+        const saveAction = async () => {
             const nameInput = document.getElementById('newCategoryName');
             const nombre = nameInput.value.trim();
             if (!nombre) return;
 
-            await db.addDocument('categorias', { nombre, icono: 'package' });
-            nameInput.value = '';
-            this.showCategoriesModal();
+            const data = { nombre, icono: this.selectedCategoryIcon };
+
+            if (this.editingCategoryId) {
+                await db.updateDocument('categorias', this.editingCategoryId, data);
+                app.showToast('Categoría actualizada');
+            } else {
+                await db.addDocument('categorias', data);
+                app.showToast('Categoría añadida');
+            }
+
+            this.showCategoriesModal(); // Refresh modal
+            this.app.renderView('inventory'); // Refresh background view
         };
+
+        if (document.getElementById('addCatBtnSave')) {
+            document.getElementById('addCatBtnSave').onclick = saveAction;
+        }
+        if (document.getElementById('saveCatBtn')) {
+            document.getElementById('saveCatBtn').onclick = saveAction;
+        }
+    },
+
+    selectCategoryIcon(icon) {
+        this.selectedCategoryIcon = icon;
+        document.querySelectorAll('.icon-option').forEach(opt => {
+            opt.classList.remove('selected');
+            if (opt.dataset.icon === icon) opt.classList.add('selected');
+        });
+        if (typeof audioService !== 'undefined') audioService.playClick();
     },
 
     async deleteCategory(id) {
