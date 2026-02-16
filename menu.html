@@ -598,10 +598,6 @@
             </div>
         </div>
 
-        <!-- Firebase SDKs -->
-        <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
-
         <!-- Load Configuration From External File (Security Improvement) -->
         <script src="js/firebase-config.js"></script>
 
@@ -617,21 +613,50 @@
 
             async function initMenu() {
                 const db = firebase.firestore();
+                let hasLoaded = false;
 
-                // 1. First, ensure we have an active auth session (Required for Security Rules)
-                let authTimeout = setTimeout(() => {
-                    renderError("La conexión de seguridad está tardando más de lo esperado. Por favor, recarga la página.");
-                }, 8000);
+                // 1. Fast fallback: if cloud is slow, try local storage immediately after 3s
+                let fallbackTimeout = setTimeout(() => {
+                    if (!hasLoaded) {
+                        const localConfig = localStorage.getItem('aromatic_menu_config');
+                        if (localConfig) {
+                            console.log("💾 Usando respaldo local por lentitud de red...");
+                            hasLoaded = true;
+                            loadLocalFallback();
+                        }
+                    }
+                }, 3500);
 
+                // 2. Security Check (Wait for Auth)
                 firebase.auth().onAuthStateChanged(async (user) => {
-                    if (user) {
-                        clearTimeout(authTimeout);
-                        console.log("🔐 Sesión activa para menú digital");
+                    if (user && !hasLoaded) {
+                        clearTimeout(fallbackTimeout);
+                        hasLoaded = true;
+                        console.log("🔐 Sesión segura activa");
                         loadMenuData(db);
-                    } else {
-                        console.log("⏳ Esperando sesión de seguridad...");
                     }
                 });
+
+                // 3. Absolute timeout for security
+                setTimeout(() => {
+                    if (!hasLoaded) {
+                        renderError("No se pudo establecer una conexión segura. Asegúrate de que el 'Inicio de sesión anónimo' esté activado en Firebase Console.");
+                    }
+                }, 10000);
+            }
+
+            async function loadLocalFallback() {
+                try {
+                    const localConfig = localStorage.getItem('aromatic_menu_config');
+                    const localSettings = JSON.parse(localStorage.getItem('aromatic_settings') || '{}');
+                    if (localConfig) {
+                        renderMenu(JSON.parse(localConfig), [], [], localSettings);
+                    } else {
+                        renderError("No hay datos guardados localmente y la conexión falló.");
+                    }
+                } catch (e) {
+                    renderError("Error al cargar datos de respaldo.");
+                }
             }
 
             async function loadMenuData(db) {
