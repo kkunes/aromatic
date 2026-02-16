@@ -635,12 +635,17 @@
                     renderMenu(config, products, categories, settings);
 
                 } catch (err) {
-                    console.error(err);
+                    console.error("CRITICAL ERROR LOADING MENU:", err);
                     // Fallback to localStorage if possible
                     const localConfig = localStorage.getItem('aromatic_menu_config');
                     const localSettings = JSON.parse(localStorage.getItem('aromatic_settings') || '{}');
                     if (localConfig) {
-                        renderMenu(JSON.parse(localConfig), [], [], localSettings);
+                        try {
+                            renderMenu(JSON.parse(localConfig), [], [], localSettings);
+                        } catch (renderErr) {
+                            console.error("FALLBACK RENDER FAILED:", renderErr);
+                            renderError("Hubo un problema al cargar el menú digital. Revisa tu conexión.");
+                        }
                     } else {
                         renderError("Hubo un problema al cargar el menú digital. Revisa tu conexión.");
                     }
@@ -648,48 +653,67 @@
             }
 
             function renderMenu(config, products, categories, settings) {
-                // Update UI Theme
-                const theme = config.theme || {};
-                document.documentElement.style.setProperty('--primary', theme.primaryColor || '#4b3621');
-                document.documentElement.style.setProperty('--accent', theme.secondaryColor || '#e2965d');
-                document.documentElement.style.setProperty('--bg', theme.backgroundColor || '#fdfaf6');
-                document.documentElement.style.setProperty('--text', theme.textColor || '#2d231a');
-                document.documentElement.style.setProperty('--font', theme.fontFamily || "'Playfair Display', serif");
-                document.body.style.backgroundColor = theme.backgroundColor || '#fdfaf6';
+                if (!config) {
+                    renderError("Configuración del menú no encontrada.");
+                    return;
+                }
 
-                const biz = settings.negocio || { nombre: 'Nuestra Carta', eslogan: 'Sabor con Alma & Corazón', logo: 'recursos/logo efimero.png' };
+                // Update UI Theme with deep defaults
+                const theme = config.theme || {};
+                const primaryColor = theme.primaryColor || '#4b3621';
+                const accentColor = theme.secondaryColor || '#e2965d';
+                const bgColor = theme.backgroundColor || '#fdfaf6';
+                const textColor = theme.textColor || '#2d231a';
+                const fontStack = theme.fontFamily || "'Playfair Display', serif";
+
+                document.documentElement.style.setProperty('--primary', primaryColor);
+                document.documentElement.style.setProperty('--accent', accentColor);
+                document.documentElement.style.setProperty('--bg', bgColor);
+                document.documentElement.style.setProperty('--text', textColor);
+                document.documentElement.style.setProperty('--font', fontStack);
+                document.body.style.backgroundColor = bgColor;
+
+                const biz = (settings && settings.negocio) || { nombre: 'Nuestra Carta', eslogan: 'Sabor con Alma & Corazón', logo: 'recursos/logo efimero.png' };
                 document.title = `${biz.nombre} - Menú Digital`;
 
-                const included = products.filter(p => config.includedProducts.includes(p.id));
+                // Safe data extraction
+                const includedIds = config.includedProducts || [];
+                const included = (products || []).filter(p => includedIds.includes(p.id));
                 const groups = {};
                 included.forEach(p => {
+                    if (!p.categoria) return;
                     if (!groups[p.categoria]) groups[p.categoria] = [];
                     groups[p.categoria].push(p);
                 });
 
                 // Respect custom product order within each group
-                if (config.productOrder) {
-                    Object.keys(groups).forEach(catName => {
-                        const order = config.productOrder[catName] || [];
-                        groups[catName].sort((a, b) => {
-                            const idxA = order.indexOf(a.id);
-                            const idxB = order.indexOf(b.id);
-                            return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
-                        });
+                const prodOrderMap = config.productOrder || {};
+                Object.keys(groups).forEach(catName => {
+                    const order = prodOrderMap[catName] || [];
+                    groups[catName].sort((a, b) => {
+                        const idxA = order.indexOf(a.id);
+                        const idxB = order.indexOf(b.id);
+                        return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
                     });
-                }
+                });
 
                 // Filter active categories that have products and respect custom order
-                const activeCats = categories
+                const catOrderArr = config.categoryOrder || [];
+                const activeCats = (categories || [])
                     .filter(cat => groups[cat.nombre] && groups[cat.nombre].length > 0)
                     .sort((a, b) => {
-                        if (config.categoryOrder && config.categoryOrder.length > 0) {
-                            const idxA = config.categoryOrder.indexOf(a.nombre);
-                            const idxB = config.categoryOrder.indexOf(b.nombre);
+                        if (catOrderArr.length > 0) {
+                            const idxA = catOrderArr.indexOf(a.nombre);
+                            const idxB = catOrderArr.indexOf(b.nombre);
                             return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
                         }
                         return (a.orden || 0) - (b.orden || 0);
                     });
+
+                if (activeCats.length === 0) {
+                    renderError("El menú está vacío por ahora. Vuelve pronto.");
+                    return;
+                }
 
                 let html = `
                 <div class="header">
@@ -713,6 +737,7 @@
 
                 activeCats.forEach(cat => {
                     const group = groups[cat.nombre];
+                    if (!group) return;
 
                     html += `
                     <div class="category-section" id="cat-${cat.id}">
@@ -722,7 +747,7 @@
                         </h2>
                 `;
 
-                    if (config.theme.layout === 'modern') {
+                    if (theme.layout === 'modern') {
                         html += `<div class="grid">`;
                         group.forEach((p, i) => {
                             const isFeatured = config.featuredProducts.includes(p.id);
