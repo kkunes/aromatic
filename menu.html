@@ -606,24 +606,47 @@
         <script src="js/firebase-config.js"></script>
 
         <script>
-            // Check if firebase was initialized by firebase-config.js
-            if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
+            // Start loading process
+            document.addEventListener('DOMContentLoaded', () => {
+                if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
+                    initMenu();
+                } else {
+                    renderError("No se pudo conectar con el servidor. Revisa tu conexión.");
+                }
+            });
+
+            async function initMenu() {
                 const db = firebase.firestore();
-                loadMenu(db);
-            } else {
-                renderError("No se pudo conectar con el servidor. Revisa tu conexión.");
+
+                // 1. First, ensure we have an active auth session (Required for Security Rules)
+                let authTimeout = setTimeout(() => {
+                    renderError("La conexión de seguridad está tardando más de lo esperado. Por favor, recarga la página.");
+                }, 8000);
+
+                firebase.auth().onAuthStateChanged(async (user) => {
+                    if (user) {
+                        clearTimeout(authTimeout);
+                        console.log("🔐 Sesión activa para menú digital");
+                        loadMenuData(db);
+                    } else {
+                        console.log("⏳ Esperando sesión de seguridad...");
+                    }
+                });
             }
 
-            async function loadMenu(db) {
+            async function loadMenuData(db) {
                 try {
                     // Fetch Data from Firestore
-                    const configSnap = await db.collection('menu_config').get();
-                    const productsSnap = await db.collection('productos').get();
-                    const categoriesSnap = await db.collection('categorias').get();
-                    const settingsSnap = await db.collection('settings').get();
+                    // Use Promise.all for faster loading
+                    const [configSnap, productsSnap, categoriesSnap, settingsSnap] = await Promise.all([
+                        db.collection('menu_config').get(),
+                        db.collection('productos').get(),
+                        db.collection('categorias').get(),
+                        db.collection('settings').get()
+                    ]);
 
                     if (configSnap.empty) {
-                        renderError("Menú no configurado. Por favor, realiza cambios en el sistema y guarda la configuración.");
+                        renderError("Menú no configurated. Por favor, guarda la configuración desde el panel de administración.");
                         return;
                     }
 
