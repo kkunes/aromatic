@@ -12,6 +12,7 @@
 
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
 
     <style>
@@ -666,10 +667,29 @@
                     groups[p.categoria].push(p);
                 });
 
-                // Filter active categories that have products
+                // Respect custom product order within each group
+                if (config.productOrder) {
+                    Object.keys(groups).forEach(catName => {
+                        const order = config.productOrder[catName] || [];
+                        groups[catName].sort((a, b) => {
+                            const idxA = order.indexOf(a.id);
+                            const idxB = order.indexOf(b.id);
+                            return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+                        });
+                    });
+                }
+
+                // Filter active categories that have products and respect custom order
                 const activeCats = categories
-                    .sort((a, b) => (a.orden || 0) - (b.orden || 0))
-                    .filter(cat => groups[cat.nombre] && groups[cat.nombre].length > 0);
+                    .filter(cat => groups[cat.nombre] && groups[cat.nombre].length > 0)
+                    .sort((a, b) => {
+                        if (config.categoryOrder && config.categoryOrder.length > 0) {
+                            const idxA = config.categoryOrder.indexOf(a.nombre);
+                            const idxB = config.categoryOrder.indexOf(b.nombre);
+                            return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+                        }
+                        return (a.orden || 0) - (b.orden || 0);
+                    });
 
                 let html = `
                 <div class="header">

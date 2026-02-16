@@ -8,6 +8,8 @@ const menuView = {
     menuConfig: {
         includedProducts: [], // IDs
         featuredProducts: [], // IDs
+        categoryOrder: [], // Array of category names
+        productOrder: {}, // Map of categoryName -> Array of product IDs
         theme: {
             primaryColor: '#4b3621',
             secondaryColor: '#e2965d',
@@ -62,42 +64,82 @@ const menuView = {
 
                         <!-- Tab Content: Selection -->
                         <div id="tab-selection" class="menu-tab-content">
-                            ${this.categories.map(cat => `
-                                <div style="margin-bottom: 35px;">
-                                    <h3 style="font-family: 'Playfair Display', serif; color: var(--primary); border-left: 4px solid var(--accent); padding-left: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
-                                        <div style="display: flex; align-items: center; gap: 10px;">
-                                            <i data-lucide="${cat.icono || 'package'}" style="width: 20px; color: var(--accent);"></i>
-                                            ${cat.nombre}
-                                        </div>
-                                        <label style="font-size: 0.8rem; font-family: 'Outfit', sans-serif; cursor: pointer; display: flex; align-items: center; gap: 5px;">
-                                            <input type="checkbox" onchange="menuView.toggleCategory('${cat.nombre}', this.checked)" style="accent-color: var(--accent);"> Seleccionar Todo
-                                        </label>
-                                    </h3>
-                                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px;">
-                                        ${this.products.filter(p => p.categoria === cat.nombre).map(p => {
-            const isIncluded = this.menuConfig.includedProducts.includes(p.id);
-            const isFeatured = this.menuConfig.featuredProducts.includes(p.id);
+                            <div style="margin-bottom: 20px; background: #f0fdf4; padding: 15px; border-radius: 12px; border: 1px solid #dcfce7; display: flex; align-items: center; gap: 10px;">
+                                <i data-lucide="info" style="color: #16a34a; width: 20px;"></i>
+                                <span style="font-size: 0.9rem; color: #16a34a; font-weight: 600;">Usa las flechas para personalizar el orden de aparición en el menú.</span>
+                            </div>
+                            
+                            ${this.getSortedCategories().map((cat, catIdx) => {
+            const productsInCat = this.getSortedProductsForCategory(cat.nombre);
             return `
-                                                <div class="menu-item-config" style="padding: 15px; border: 1.5px solid ${isIncluded ? 'var(--primary)30' : '#f1f5f9'}; border-radius: 18px; display: flex; align-items: center; gap: 15px; transition: all 0.2s; background: ${isIncluded ? '#fdfaf6' : 'white'}">
-                                                    <img src="${p.imagen}" style="width: 50px; height: 50px; border-radius: 10px; object-fit: cover;">
-                                                    <div style="flex: 1;">
-                                                        <div style="font-weight: 700; font-size: 0.95rem;">${p.nombre}</div>
-                                                        <div style="font-size: 0.85rem; color: #15803d; font-weight: 600;">$${p.precio.toFixed(2)}</div>
-                                                    </div>
-                                                    <div style="display: flex; flex-direction: column; gap: 8px;">
-                                                        <label title="Incluir en Menú" style="cursor: pointer;">
-                                                            <input type="checkbox" class="product-include-check" data-id="${p.id}" ${isIncluded ? 'checked' : ''} onchange="menuView.toggleProduct('${p.id}', 'include')" style="width: 18px; height: 18px; accent-color: var(--primary);">
-                                                        </label>
-                                                        <button onclick="menuView.toggleProduct('${p.id}', 'feature')" style="border: none; background: none; cursor: pointer; color: ${isFeatured ? '#eab308' : '#cbd5e1'}; transition: all 0.2s;" title="${isFeatured ? 'Destacado' : 'Marcar como recomendado'}">
-                                                            <i data-lucide="star" style="width: 18px; fill: ${isFeatured ? '#eab308' : 'none'};"></i>
-                                                        </button>
-                                                    </div>
+                                    <div class="category-config-block" style="margin-bottom: 35px; background: #f8fafc; padding: 20px; border-radius: 24px; border: 1px solid #e2e8f0;">
+                                        <h3 style="font-family: 'Playfair Display', serif; color: var(--primary); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                                            <div style="display: flex; align-items: center; gap: 12px;">
+                                                <div style="display: flex; flex-direction: column; gap: 2px;">
+                                                    <button onclick="menuView.moveCategory(${catIdx}, -1)" class="order-btn" title="Subir Categoría" ${catIdx === 0 ? 'disabled style="opacity:0.3; cursor:default;"' : ''}>
+                                                        <i data-lucide="chevron-up" style="width: 14px;"></i>
+                                                    </button>
+                                                    <button onclick="menuView.moveCategory(${catIdx}, 1)" class="order-btn" title="Bajar Categoría" ${catIdx === this.categories.length - 1 ? 'disabled style="opacity:0.3; cursor:default;"' : ''}>
+                                                        <i data-lucide="chevron-down" style="width: 14px;"></i>
+                                                    </button>
                                                 </div>
-                                            `;
-        }).join('')}
+                                                <i data-lucide="${cat.icono || 'package'}" style="width: 20px; color: var(--accent);"></i>
+                                                <span style="font-size: 1.3rem;">${cat.nombre}</span>
+                                            </div>
+                                            <label style="font-size: 0.8rem; font-family: 'Outfit', sans-serif; cursor: pointer; display: flex; align-items: center; gap: 8px; background: white; padding: 6px 12px; border-radius: 10px; border: 1px solid #e2e8f0;">
+                                                <input type="checkbox" onchange="menuView.toggleCategory('${cat.nombre}', this.checked)" style="accent-color: var(--accent);"> Seleccionar Todo
+                                            </label>
+                                        </h3>
+                                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 15px;">
+                                            ${productsInCat.map((p, pIdx) => {
+                const isIncluded = this.menuConfig.includedProducts.includes(p.id);
+                const isFeatured = this.menuConfig.featuredProducts.includes(p.id);
+                return `
+                                                    <div class="menu-item-config" style="padding: 12px; border: 1.5px solid ${isIncluded ? 'var(--primary)30' : '#f1f5f9'}; border-radius: 18px; display: flex; align-items: center; gap: 12px; transition: all 0.2s; background: ${isIncluded ? 'white' : '#f8fafc'}">
+                                                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                                                            <button onclick="menuView.moveProduct('${cat.nombre}', ${pIdx}, -1)" class="order-btn-mini" ${pIdx === 0 ? 'disabled style="opacity:0.2"' : ''}>
+                                                                <i data-lucide="arrow-up" style="width: 12px;"></i>
+                                                            </button>
+                                                            <button onclick="menuView.moveProduct('${cat.nombre}', ${pIdx}, 1)" class="order-btn-mini" ${pIdx === productsInCat.length - 1 ? 'disabled style="opacity:0.2"' : ''}>
+                                                                <i data-lucide="arrow-down" style="width: 12px;"></i>
+                                                            </button>
+                                                        </div>
+                                                        <img src="${p.imagen}" style="width: 45px; height: 45px; border-radius: 10px; object-fit: cover;">
+                                                        <div style="flex: 1; overflow: hidden;">
+                                                            <div style="font-weight: 700; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.nombre}</div>
+                                                            <div style="font-size: 0.8rem; color: #15803d; font-weight: 600;">$${p.precio.toFixed(2)}</div>
+                                                        </div>
+                                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                                            <button onclick="menuView.toggleProduct('${p.id}', 'feature')" style="border: none; background: none; cursor: pointer; color: ${isFeatured ? '#eab308' : '#cbd5e1'}; transition: all 0.2s;" title="${isFeatured ? 'Destacado' : 'Marcar como recomendado'}">
+                                                                <i data-lucide="star" style="width: 18px; fill: ${isFeatured ? '#eab308' : 'none'};"></i>
+                                                            </button>
+                                                            <label title="Incluir en Menú" style="cursor: pointer; display: flex; align-items: center;">
+                                                                <input type="checkbox" class="product-include-check" data-id="${p.id}" ${isIncluded ? 'checked' : ''} onchange="menuView.toggleProduct('${p.id}', 'include')" style="width: 20px; height: 20px; accent-color: var(--primary);">
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                `;
+            }).join('')}
+                                        </div>
                                     </div>
-                                </div>
-                            `).join('')}
+                                `;
+        }).join('')}
+                            <style>
+                                .order-btn, .order-btn-mini {
+                                    background: white;
+                                    border: 1px solid #e2e8f0;
+                                    color: #64748b;
+                                    cursor: pointer;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    transition: all 0.2s;
+                                }
+                                .order-btn { width: 28px; height: 24px; border-radius: 6px; }
+                                .order-btn:hover:not(:disabled) { background: var(--primary); color: white; border-color: var(--primary); }
+                                .order-btn-mini { width: 22px; height: 20px; border-radius: 4px; border: none; background: #f1f5f9; }
+                                .order-btn-mini:hover:not(:disabled) { background: #e2e8f0; color: var(--primary); }
+                            </style>
                         </div>
 
                         <!-- Tab Content: Design -->
@@ -192,6 +234,156 @@ const menuView = {
             // Default: include all products
             this.menuConfig.includedProducts = this.products.map(p => p.id);
         }
+
+        // Ensure category order exists
+        if (!this.menuConfig.categoryOrder || this.menuConfig.categoryOrder.length === 0) {
+            this.menuConfig.categoryOrder = this.categories.map(c => c.nombre);
+        } else {
+            // Check for new categories not in order
+            this.categories.forEach(c => {
+                if (!this.menuConfig.categoryOrder.includes(c.nombre)) {
+                    this.menuConfig.categoryOrder.push(c.nombre);
+                }
+            });
+            // Remove deleted categories from order
+            const catNames = this.categories.map(c => c.nombre);
+            this.menuConfig.categoryOrder = this.menuConfig.categoryOrder.filter(n => catNames.includes(n));
+        }
+
+        // Initialize productOrder if missing
+        if (!this.menuConfig.productOrder) this.menuConfig.productOrder = {};
+        this.categories.forEach(cat => {
+            const catProds = this.products.filter(p => p.categoria === cat.nombre).map(p => p.id);
+            if (!this.menuConfig.productOrder[cat.nombre]) {
+                this.menuConfig.productOrder[cat.nombre] = catProds;
+            } else {
+                // Sync new products
+                catProds.forEach(pid => {
+                    if (!this.menuConfig.productOrder[cat.nombre].includes(pid)) {
+                        this.menuConfig.productOrder[cat.nombre].push(pid);
+                    }
+                });
+                // Remove deleted products
+                this.menuConfig.productOrder[cat.nombre] = this.menuConfig.productOrder[cat.nombre].filter(pid => catProds.includes(pid));
+            }
+        });
+    },
+
+    getSortedCategories() {
+        return [...this.menuConfig.categoryOrder].map(name =>
+            this.categories.find(c => c.nombre === name)
+        ).filter(Boolean);
+    },
+
+    getSortedProductsForCategory(catName) {
+        const order = this.menuConfig.productOrder[catName] || [];
+        const catProds = this.products.filter(p => p.categoria === catName);
+
+        return [...order].map(id =>
+            catProds.find(p => p.id === id)
+        ).filter(Boolean);
+    },
+
+    moveCategory(index, direction) {
+        const newIndex = index + direction;
+        if (newIndex < 0 || newIndex >= this.menuConfig.categoryOrder.length) return;
+
+        const arr = this.menuConfig.categoryOrder;
+        [arr[index], arr[newIndex]] = [arr[newIndex], arr[index]];
+
+        // Persist change so renderView doesn't overwrite it
+        localStorage.setItem('aromatic_menu_config', JSON.stringify(this.menuConfig));
+
+        this.refreshSelectionTab();
+        if (typeof audioService !== 'undefined') audioService.playClick();
+    },
+
+    moveProduct(catName, index, direction) {
+        const order = this.menuConfig.productOrder[catName];
+        if (!order) return;
+
+        const newIndex = index + direction;
+        if (newIndex < 0 || newIndex >= order.length) return;
+
+        [order[index], order[newIndex]] = [order[newIndex], order[index]];
+
+        // Persist change so renderView doesn't overwrite it
+        localStorage.setItem('aromatic_menu_config', JSON.stringify(this.menuConfig));
+
+        this.refreshSelectionTab();
+        if (typeof audioService !== 'undefined') audioService.playClick();
+    },
+
+    refreshSelectionTab() {
+        // Instead of full app.renderView, just update the selection tab content and preview
+        const container = document.getElementById('tab-selection');
+        if (container) {
+            // Re-render the selection content
+            container.innerHTML = `
+                <div style="margin-bottom: 20px; background: #f0fdf4; padding: 15px; border-radius: 12px; border: 1px solid #dcfce7; display: flex; align-items: center; gap: 10px;">
+                    <i data-lucide="info" style="color: #16a34a; width: 20px;"></i>
+                    <span style="font-size: 0.9rem; color: #16a34a; font-weight: 600;">Usa las flechas para personalizar el orden de aparición en el menú.</span>
+                </div>
+                
+                ${this.getSortedCategories().map((cat, catIdx) => {
+                const productsInCat = this.getSortedProductsForCategory(cat.nombre);
+                return `
+                        <div class="category-config-block" style="margin-bottom: 35px; background: #f8fafc; padding: 20px; border-radius: 24px; border: 1px solid #e2e8f0;">
+                            <h3 style="font-family: 'Playfair Display', serif; color: var(--primary); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                                        <button onclick="menuView.moveCategory(${catIdx}, -1)" class="order-btn" title="Subir Categoría" ${catIdx === 0 ? 'disabled style="opacity:0.3; cursor:default;"' : ''}>
+                                            <i data-lucide="chevron-up" style="width: 14px;"></i>
+                                        </button>
+                                        <button onclick="menuView.moveCategory(${catIdx}, 1)" class="order-btn" title="Bajar Categoría" ${catIdx === this.menuConfig.categoryOrder.length - 1 ? 'disabled style="opacity:0.3; cursor:default;"' : ''}>
+                                            <i data-lucide="chevron-down" style="width: 14px;"></i>
+                                        </button>
+                                    </div>
+                                    <i data-lucide="${cat.icono || 'package'}" style="width: 20px; color: var(--accent);"></i>
+                                    <span style="font-size: 1.3rem;">${cat.nombre}</span>
+                                </div>
+                                <label style="font-size: 0.8rem; font-family: 'Outfit', sans-serif; cursor: pointer; display: flex; align-items: center; gap: 8px; background: white; padding: 6px 12px; border-radius: 10px; border: 1px solid #e2e8f0;">
+                                    <input type="checkbox" onchange="menuView.toggleCategory('${cat.nombre}', this.checked)" style="accent-color: var(--accent);"> Seleccionar Todo
+                                </label>
+                            </h3>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 15px;">
+                                ${productsInCat.map((p, pIdx) => {
+                    const isIncluded = this.menuConfig.includedProducts.includes(p.id);
+                    const isFeatured = this.menuConfig.featuredProducts.includes(p.id);
+                    return `
+                                        <div class="menu-item-config" style="padding: 12px; border: 1.5px solid ${isIncluded ? 'var(--primary)30' : '#f1f5f9'}; border-radius: 18px; display: flex; align-items: center; gap: 12px; transition: all 0.2s; background: ${isIncluded ? 'white' : '#f8fafc'}">
+                                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                                <button onclick="menuView.moveProduct('${cat.nombre}', ${pIdx}, -1)" class="order-btn-mini" ${pIdx === 0 ? 'disabled style="opacity:0.2"' : ''}>
+                                                    <i data-lucide="arrow-up" style="width: 12px;"></i>
+                                                </button>
+                                                <button onclick="menuView.moveProduct('${cat.nombre}', ${pIdx}, 1)" class="order-btn-mini" ${pIdx === productsInCat.length - 1 ? 'disabled style="opacity:0.2"' : ''}>
+                                                    <i data-lucide="arrow-down" style="width: 12px;"></i>
+                                                </button>
+                                            </div>
+                                            <img src="${p.imagen}" style="width: 45px; height: 45px; border-radius: 10px; object-fit: cover;">
+                                            <div style="flex: 1; overflow: hidden;">
+                                                <div style="font-weight: 700; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.nombre}</div>
+                                                <div style="font-size: 0.8rem; color: #15803d; font-weight: 600;">$${p.precio.toFixed(2)}</div>
+                                            </div>
+                                            <div style="display: flex; align-items: center; gap: 10px;">
+                                                <button onclick="menuView.toggleProduct('${p.id}', 'feature')" style="border: none; background: none; cursor: pointer; color: ${isFeatured ? '#eab308' : '#cbd5e1'}; transition: all 0.2s;" title="${isFeatured ? 'Destacado' : 'Marcar como recomendado'}">
+                                                    <i data-lucide="star" style="width: 18px; fill: ${isFeatured ? '#eab308' : 'none'};"></i>
+                                                </button>
+                                                <label title="Incluir en Menú" style="cursor: pointer; display: flex; align-items: center;">
+                                                    <input type="checkbox" class="product-include-check" data-id="${p.id}" ${isIncluded ? 'checked' : ''} onchange="menuView.toggleProduct('${p.id}', 'include')" style="width: 20px; height: 20px; accent-color: var(--primary);">
+                                                </label>
+                                            </div>
+                                        </div>
+                                    `;
+                }).join('')}
+                            </div>
+                        </div>
+                    `;
+            }).join('')}
+            `;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            this.refreshPreview();
+        }
     },
 
     async saveConfig() {
@@ -203,17 +395,20 @@ const menuView = {
 
     selectAllProducts() {
         this.menuConfig.includedProducts = this.products.map(p => p.id);
+        localStorage.setItem('aromatic_menu_config', JSON.stringify(this.menuConfig));
         app.showToast('Todo el catálogo seleccionado para el menú', 'info');
-        app.renderView('menu'); // Full refresh to update all checkboxes
+        this.refreshSelectionTab();
     },
 
     updateConfig(key, val) {
         this.menuConfig[key] = val;
+        localStorage.setItem('aromatic_menu_config', JSON.stringify(this.menuConfig));
         this.refreshPreview();
     },
 
     updateTheme(key, val) {
         this.menuConfig.theme[key] = val;
+        localStorage.setItem('aromatic_menu_config', JSON.stringify(this.menuConfig));
         this.refreshPreview();
     },
 
@@ -227,7 +422,9 @@ const menuView = {
             if (idx === -1) this.menuConfig.featuredProducts.push(id);
             else this.menuConfig.featuredProducts.splice(idx, 1);
         }
-        this.refreshPreview();
+
+        localStorage.setItem('aromatic_menu_config', JSON.stringify(this.menuConfig));
+        this.refreshSelectionTab(); // Better to refresh tab too for consistent styling (bg colors)
         if (typeof audioService !== 'undefined') audioService.playClick();
     },
 
@@ -238,7 +435,10 @@ const menuView = {
             if (checked && idx === -1) this.menuConfig.includedProducts.push(p.id);
             else if (!checked && idx !== -1) this.menuConfig.includedProducts.splice(idx, 1);
         });
-        this.refreshPreview();
+
+        localStorage.setItem('aromatic_menu_config', JSON.stringify(this.menuConfig));
+        this.refreshSelectionTab();
+        if (typeof audioService !== 'undefined') audioService.playClick();
 
         // Update checkboxes visually
         document.querySelectorAll('.product-include-check').forEach(cb => {
@@ -258,6 +458,7 @@ const menuView = {
     },
 
     bindEvents(app) {
+        window.menuView = this; // Ensure global access for onclick events
         const tabs = document.querySelectorAll('.menu-tab-btn');
         tabs.forEach(btn => {
             btn.onclick = () => {
@@ -291,6 +492,16 @@ const menuView = {
         included.forEach(p => {
             if (!groups[p.categoria]) groups[p.categoria] = [];
             groups[p.categoria].push(p);
+        });
+
+        // Respect custom product order within each group
+        Object.keys(groups).forEach(catName => {
+            const order = this.menuConfig.productOrder[catName] || [];
+            groups[catName].sort((a, b) => {
+                const idxA = order.indexOf(a.id);
+                const idxB = order.indexOf(b.id);
+                return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+            });
         });
 
         const headerColor = theme.primaryColor;
@@ -331,7 +542,7 @@ const menuView = {
 
                     <!-- Product Groups -->
                     <div style="width: 100%; position: relative; z-index: 10;">
-                        ${this.categories.map(cat => {
+                        ${this.getSortedCategories().map(cat => {
                 const group = groups[cat.nombre];
                 if (!group || group.length === 0) return '';
                 return `
@@ -396,7 +607,7 @@ const menuView = {
                     <p style="text-transform: uppercase; letter-spacing: 3px; font-size: 0.7rem; font-weight: 700; opacity: 0.6;">${biz.eslogan}</p>
                 </div>
 
-                ${this.categories.map(cat => {
+                ${this.getSortedCategories().map(cat => {
             const group = groups[cat.nombre];
             if (!group || group.length === 0) return '';
             return `

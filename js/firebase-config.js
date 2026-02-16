@@ -23,6 +23,15 @@ if (typeof firebase !== 'undefined') {
     if (!firebase.apps.length) {
         firebase.initializeApp(firebaseConfig);
 
+        // Inicio de sesión anónimo automático para asegurar la conexión
+        firebase.auth().signInAnonymously()
+            .then(() => {
+                console.log("🔐 Sesión segura de Firebase activa");
+            })
+            .catch((error) => {
+                console.error("Error en Auth:", error.code, error.message);
+            });
+
         // Enable offline persistence for better user experience
         firebase.firestore().enablePersistence()
             .catch((err) => {

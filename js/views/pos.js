@@ -7,6 +7,39 @@ const posView = {
         const dbCategories = await db.getCollection('categorias');
         this.filteredProducts = [...this.products];
 
+        // Respect custom order from Menu Config
+        const menuConfigRaw = localStorage.getItem('aromatic_menu_config');
+        if (menuConfigRaw) {
+            const menuConfig = JSON.parse(menuConfigRaw);
+
+            // Sort categories
+            if (menuConfig.categoryOrder && menuConfig.categoryOrder.length > 0) {
+                dbCategories.sort((a, b) => {
+                    const idxA = menuConfig.categoryOrder.indexOf(a.nombre);
+                    const idxB = menuConfig.categoryOrder.indexOf(b.nombre);
+                    return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+                });
+            }
+
+            // Sort products global (optional but provides consistency)
+            this.products.sort((a, b) => {
+                const orderA = menuConfig.productOrder?.[a.categoria] || [];
+                const orderB = menuConfig.productOrder?.[b.categoria] || [];
+                const idxA = orderA.indexOf(a.id);
+                const idxB = orderB.indexOf(b.id);
+
+                // If same category, use their specific order
+                if (a.categoria === b.categoria) {
+                    return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+                }
+                // If different categories, sort by category order
+                const catIdxA = menuConfig.categoryOrder?.indexOf(a.categoria) ?? 999;
+                const catIdxB = menuConfig.categoryOrder?.indexOf(b.categoria) ?? 999;
+                return catIdxA - catIdxB;
+            });
+            this.filteredProducts = [...this.products];
+        }
+
         return `
             <style>
                 .category-filters .chip {

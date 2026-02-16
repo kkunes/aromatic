@@ -101,11 +101,40 @@ const ticketView = {
                 </div>
 
                 <div class="ticket-footer" style="text-align: center; margin-top: 15px; border-top: 1px dashed #000; padding-top: 10px; color: #000;">
-                    ${venta.cliente ? `
+                    ${(() => {
+                if (!venta.cliente) return '';
+
+                const loyalty = settings.fidelizacion;
+                const puntos = venta.puntosTotales || 0;
+
+                // Encontrar nivel actual
+                const niveles = loyalty.niveles || [];
+                const sortedDesc = [...niveles].sort((a, b) => b.minPuntos - a.minPuntos);
+                const currentTier = sortedDesc.find(n => puntos >= n.minPuntos) || sortedDesc[sortedDesc.length - 1];
+
+                // Encontrar siguiente nivel
+                const sortedAsc = [...niveles].sort((a, b) => a.minPuntos - b.minPuntos);
+                const nextTier = sortedAsc.find(n => n.minPuntos > puntos);
+
+                let levelInfoHTML = '';
+                if (currentTier) {
+                    levelInfoHTML += `<p style="margin: 4px 0 0 0; font-size: 0.8em; font-weight: bold; color: #000;">NIVEL: ${currentTier.nombre.toUpperCase()}</p>`;
+
+                    if (nextTier) {
+                        const faltantes = nextTier.minPuntos - puntos;
+                        levelInfoHTML += `<p style="margin: 2px 0 0 0; font-size: 0.75em; color: #000; font-style: italic;">¡A solo ${faltantes} pts de ser ${nextTier.nombre}!</p>`;
+                    } else {
+                        levelInfoHTML += `<p style="margin: 2px 0 0 0; font-size: 0.75em; color: #000; font-style: italic;">✨ ¡Felicidades, eres nivel máximo! ✨</p>`;
+                    }
+                }
+
+                return `
                         <div style="margin-bottom: 10px; padding: 5px; border: 1px solid #000; border-radius: 4px; text-align: left;">
                             <p style="margin: 0 0 5px 0; font-size: 0.85em; font-weight: bold; text-align: center; border-bottom: 1px solid #000; padding-bottom: 3px;">PROGRAMA DE LEALTAD</p>
                             <p style="margin: 0; font-size: 0.8em; font-weight: bold;">${venta.cliente.nombre}</p>
                             
+                            ${levelInfoHTML}
+
                             <div style="font-size: 0.75em; margin-top: 5px; border-top: 1px dashed #000; padding-top: 3px;">
                                 <div style="display: flex; justify-content: space-between;">
                                     <span>Puntos anteriores:</span>
@@ -137,7 +166,8 @@ const ticketView = {
                                 </div>
                             </div>
                         </div>
-                    ` : ''}
+                        `;
+            })()}
 
                     <p style="margin: 5px 0; font-weight: bold; font-size: 1em; color: #000;">${settings.negocio.mensajeTicket}</p>
                     
