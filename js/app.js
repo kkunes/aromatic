@@ -9,7 +9,6 @@ class AromaticApp {
         this.activeTicketIdx = 0;
         this.ticketCounter = 1;
         this.activePinUserId = null;
-        this.init();
     }
 
     get cart() {
@@ -17,26 +16,29 @@ class AromaticApp {
     }
 
     async init() {
+        // 1. Initialize Peripherals (Must be first for sounds/keyboard)
+        if (typeof virtualKeyboard !== 'undefined') virtualKeyboard.init();
+        if (typeof audioService !== 'undefined') audioService.init();
+
+        // 2. Setup UI static elements
         this.bindEvents();
         this.updateClock();
+        this.updateBranding();
 
-        // Auto-seed database if empty
+        // 3. Ensure database is ready
         await db.initializeDatabase();
 
-        this.renderView('pos');
-        this.updateTicketsUI();
-        this.updateBranding();
+        // 4. Start background sync and initial render
+        this.initKioskSync();
         this.checkNotifications();
-        virtualKeyboard.init();
-        audioService.init(); // Initialize Premium Audio
 
-        // Start Onboarding Tour if needed
-        setTimeout(() => this.initTour(), 2000);
+        // IMPORTANT: Await the initial view to show products immediately
+        await this.renderView('pos');
+        this.updateTicketsUI();
 
-        this.applyRolePrivileges();
-
+        // 5. Start intervals
         setInterval(() => this.updateClock(), 1000);
-        setInterval(() => this.checkNotifications(), 30000); // Check every 30s
+        setInterval(() => this.checkNotifications(), 30000);
     }
 
     applyRolePrivileges() {
@@ -217,6 +219,17 @@ class AromaticApp {
     }
 
     bindEvents() {
+        // Utility for safe event binding
+        const safeBind = (id, event, handler) => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener(event, handler);
+        };
+
+        const safeClick = (id, handler) => {
+            const el = document.getElementById(id);
+            if (el) el.onclick = handler;
+        };
+
         // Navigation
         document.querySelectorAll('.nav-links li').forEach(li => {
             li.addEventListener('click', () => {
@@ -225,36 +238,24 @@ class AromaticApp {
             });
         });
 
-        // Global Search with debounce
+        // Global Search
         const globalSearch = document.getElementById('globalSearch');
         if (globalSearch) {
             const debouncedSearch = this.debounce((query) => this.handleSearch(query), 300);
             globalSearch.oninput = (e) => debouncedSearch(e.target.value);
         }
 
-        // Checkout
-        document.getElementById('checkoutBtn').addEventListener('click', () => {
-            this.handleCheckout();
-        });
-
-        // Clear Cart
-        document.getElementById('clearCart').addEventListener('click', () => {
-            this.clearCart();
-        });
-
-        // Multi-Ticket events
-        document.getElementById('addNewTicketBtn').onclick = () => this.createNewTicket();
-
-        // Right Panel Tabs
-        document.getElementById('tabCart').onclick = () => this.switchPanelTab('cart');
-        document.getElementById('tabHistory').onclick = () => this.switchPanelTab('history');
-
-        // Notifications
-        document.getElementById('notificationsBtn').onclick = () => this.showNotifications();
-
-        // Customer Selection in Cart
-        document.getElementById('selectCustomerBtn').onclick = () => this.showCustomerSelector();
-        document.getElementById('removeCustomerBtn').onclick = () => this.removeCustomerFromTicket();
+        // Action Buttons
+        safeBind('checkoutBtn', 'click', () => this.handleCheckout());
+        safeBind('clearCart', 'click', () => this.clearCart());
+        safeClick('addNewTicketBtn', () => this.createNewTicket());
+        safeClick('tabCart', () => this.switchPanelTab('cart'));
+        safeClick('tabHistory', () => this.switchPanelTab('history'));
+        safeClick('notificationsBtn', () => this.showNotifications());
+        safeClick('kioskOrdersBtn', () => this.showKioskOrders());
+        safeClick('selectCustomerBtn', () => this.showCustomerSelector());
+        safeClick('removeCustomerBtn', () => this.removeCustomerFromTicket());
+        safeClick('userProfileBtn', () => this.showUserSwitcher());
 
         // History Search
         const histSearch = document.getElementById('historySearch');
@@ -263,18 +264,252 @@ class AromaticApp {
             histSearch.oninput = (e) => debouncedHist(e.target.value);
         }
 
-        // Image lazy loading smooth transition
+        // Robust Image Loading (Fixes products without image)
         document.addEventListener('load', (e) => {
             if (e.target.tagName === 'IMG') {
                 e.target.classList.add('loaded');
             }
         }, true);
 
-
-        // Login / User Switcher
-        document.getElementById('userProfileBtn').onclick = () => this.showUserSwitcher();
+        // Check already loaded images (cached)
+        setInterval(() => {
+            document.querySelectorAll('img[loading="lazy"]:not(.loaded)').forEach(img => {
+                if (img.complete) img.classList.add('loaded');
+            });
+        }, 1000);
 
         this.initKeyboardShortcuts();
+    }
+
+    initKioskSync() {
+        if (!db.firestore) return;
+
+        db.firestore.collection('pedidos_kiosco')
+            .where('estado', '==', 'pendiente_pago')
+            .onSnapshot(snapshot => {
+                const count = snapshot.size;
+                const badge = document.getElementById('kioskBadge');
+                if (badge) {
+                    if (count > 0) {
+                        badge.textContent = count;
+                        badge.classList.remove('hidden');
+                        if (typeof audioService !== 'undefined' && !snapshot.metadata.hasPendingWrites) {
+                            // Only play alert for new incoming remote orders
+                            audioService.playClick();
+                        }
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                }
+            }, err => console.error("Kiosk Sync Error:", err));
+    }
+
+    async showKioskOrders() {
+        const modal = document.getElementById('modalContainer');
+        const modalContent = modal.querySelector('.modal-content');
+        modal.classList.remove('hidden');
+
+        try {
+            // Fetch without orderBy to avoid composite index requirement
+            const snapshot = await db.firestore.collection('pedidos_kiosco')
+                .where('estado', '==', 'pendiente_pago')
+                .get();
+
+            let orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            // Sort in memory instead
+            orders.sort((a, b) => {
+                const dateA = a.fecha?.toDate?.() || new Date(0);
+                const dateB = b.fecha?.toDate?.() || new Date(0);
+                return dateB - dateA;
+            });
+
+            modalContent.innerHTML = `
+                <div style="width: 750px; padding: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                        <div>
+                            <h1 style="font-family: 'Playfair Display', serif; font-size: 2rem; color: var(--primary); margin: 0;">Pedidos del Kiosco</h1>
+                            <p style="color: var(--text-muted); margin: 5px 0 0 0;">Pedidos pendientes de cobro en mostrador</p>
+                        </div>
+                        <button class="btn-icon" onclick="app.closeModal()">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
+
+                    <!-- Buscador -->
+                    <div style="margin-bottom: 25px; position: relative;">
+                        <i data-lucide="search" style="position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: #94a3b8; width: 20px;"></i>
+                        <input type="text" id="kioskOrderSearch" 
+                               placeholder="Buscar por #Folio..." 
+                               style="width: 100%; padding: 15px 15px 15px 45px; border-radius: 15px; border: 2px solid #f1f5f9; font-size: 1rem; outline: none;">
+                    </div><div id="kioskOrdersListContainer" style="max-height: 550px; overflow-y: auto; padding-right: 10px;">
+                    </div>
+                </div>
+            `;
+
+            const listContainer = document.getElementById('kioskOrdersListContainer');
+            const searchInput = document.getElementById('kioskOrderSearch');
+
+            const renderListFiltered = (filter = '') => {
+                const filtered = orders.filter(o => o.folioKiosco.toString().includes(filter));
+                if (filtered.length === 0) {
+                    listContainer.innerHTML = `
+                        <div style="text-align: center; padding: 60px 20px; color: #94a3b8;">
+                            <i data-lucide="search-x" style="width: 60px; height: 60px; margin-bottom: 20px; opacity: 0.2;"></i>
+                            <p style="font-size: 1.1rem;">No se encontraron pedidos con ese número.</p>
+                        </div>`;
+                } else {
+                    listContainer.innerHTML = filtered.map(order => {
+                        const orderDate = order.fecha?.toDate?.() || new Date();
+                        return `
+                            <div class="card kiosk-order-card" id="kiosk-order-${order.id}" style="margin-bottom: 12px; padding: 0; border-radius: 20px; border: 1.5px solid #f1f5f9; overflow: hidden; transition: all 0.3s ease;">
+                                <!-- Order Header (Summary) -->
+                                <div onclick="app.toggleKioskOrderDetails('${order.id}')" style="padding: 20px 25px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: white;">
+                                    <div style="display: flex; align-items: center; gap: 15px;">
+                                        <div style="background: var(--primary); color: white; width: 45px; height: 45px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem;">
+                                            ${order.folioKiosco}
+                                        </div>
+                                        <div>
+                                            <div style="font-weight: 700; color: var(--primary); font-size: 0.9rem;">Pedido Kiosco</div>
+                                            <div style="font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px;">
+                                                <i data-lucide="clock" style="width: 12px;"></i>
+                                                ${orderDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div style="display: flex; align-items: center; gap: 25px;">
+                                        <div style="text-align: right;">
+                                            <div style="font-size: 1.1rem; font-weight: 800; color: var(--accent);">$${order.total.toFixed(2)}</div>
+                                            <div style="font-size: 0.75rem; color: #94a3b8;">${order.items.length} prod.</div>
+                                        </div>
+                                        <i data-lucide="chevron-down" class="chevron-icon" style="color: #cbd5e1; transition: transform 0.3s;"></i>
+                                    </div>
+                                </div>
+
+                                <!-- Order Details (Hidden by default) -->
+                                <div class="order-details-content" style="display: none; padding: 0 25px 25px; background: white; border-top: 1px solid #f8fafc;">
+                                    <div style="background: #f8fafc; border-radius: 12px; padding: 15px; margin-top: 15px; margin-bottom: 20px;">
+                                        ${order.items.map(item => {
+                            const customizationDetails = [];
+                            if (item.omitted && item.omitted.length > 0) customizationDetails.push(`<span style="color: #ef4444; font-size: 0.75rem;">Sin: ${item.omitted.length} ing.</span>`);
+                            if (item.extras && item.extras.length > 0) customizationDetails.push(`<span style="color: #16a34a; font-size: 0.75rem;">+ ${item.extras.length} extras</span>`);
+                            if (item.nota) customizationDetails.push(`<i style="color: #64748b; font-size: 0.75rem; display: block;">"${item.nota}"</i>`);
+                            return `
+                                                <div style="margin-bottom: 10px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 5px;">
+                                                    <div style="display: flex; justify-content: space-between; font-size: 0.95rem;">
+                                                        <span style="font-weight: 600;">${item.cantidad}x ${item.nombre}</span>
+                                                        <span>$${(item.precio * item.cantidad).toFixed(2)}</span>
+                                                    </div>
+                                                    <div style="display: flex; flex-direction: column; gap: 2px; margin-top: 4px;">
+                                                        ${customizationDetails.join('')}
+                                                    </div>
+                                                </div>`;
+                        }).join('')}
+                                    </div>
+                                    <div style="display: flex; gap: 12px;">
+                                        <button class="btn-primary" onclick="app.importKioskOrder('${order.id}')" style="flex: 1; padding: 14px; border-radius: 14px; font-weight: 700;">COBRAR AHORA</button>
+                                        <button class="btn-secondary" onclick="app.deleteKioskOrder('${order.id}')" style="padding: 14px; border-radius: 14px; color: #ef4444; width: 60px;">
+                                            <i data-lucide="trash-2"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>`;
+                    }).join('');
+                }
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            };
+
+            // Initial render
+            renderListFiltered();
+
+            // Bind search event
+            searchInput.oninput = (e) => renderListFiltered(e.target.value);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        } catch (err) {
+            console.error("Error showing kiosk orders:", err);
+            this.showToast("No se pudieron cargar los pedidos del kiosco", "error");
+        }
+    }
+
+    toggleKioskOrderDetails(orderId) {
+        const card = document.getElementById(`kiosk-order-${orderId}`);
+        if (!card) return;
+
+        const details = card.querySelector('.order-details-content');
+        const chevron = card.querySelector('.chevron-icon');
+        const isHidden = details.style.display === 'none';
+
+        // Close all other orders for a clean accordion feel
+        document.querySelectorAll('.order-details-content').forEach(el => {
+            if (el !== details) {
+                el.style.display = 'none';
+                const otherCard = el.closest('.kiosk-order-card');
+                if (otherCard) {
+                    otherCard.style.borderColor = '#f1f5f9';
+                    otherCard.querySelector('.chevron-icon').style.transform = 'rotate(0deg)';
+                }
+            }
+        });
+
+        if (isHidden) {
+            details.style.display = 'block';
+            card.style.borderColor = 'var(--primary)';
+            card.style.boxShadow = '0 10px 25px rgba(0,0,0,0.05)';
+            chevron.style.transform = 'rotate(180deg)';
+            chevron.style.color = 'var(--primary)';
+        } else {
+            details.style.display = 'none';
+            card.style.borderColor = '#f1f5f9';
+            card.style.boxShadow = 'none';
+            chevron.style.transform = 'rotate(0deg)';
+            chevron.style.color = '#cbd5e1';
+        }
+    }
+
+    async importKioskOrder(orderId) {
+        try {
+            const doc = await db.firestore.collection('pedidos_kiosco').doc(orderId).get();
+            const order = doc.data();
+
+            // Clear current cart and import
+            this.tickets[this.activeTicketIdx].cart = order.items.map(item => ({
+                id: item.id,
+                nombre: item.nombre,
+                precio: item.precio, // This should be pre-calculated unitPrice if extras applied, or we handle them
+                quantity: item.cantidad,
+                categoria: item.categoria,
+                extras: item.extras || [],
+                omitted: item.omitted || [],
+                nota: item.nota || '',
+                imagen: item.imagen || 'recursos/logo efimero.png'
+            }));
+
+            // Mark order as 'processing' or just delete it if paid
+            // For now, let's keep it in Firestore until final POS checkout deletes it, 
+            // OR delete it now to avoid double import. Let's delete it.
+            await db.firestore.collection('pedidos_kiosco').doc(orderId).delete();
+
+            this.updateCartUI();
+            this.closeModal();
+            this.showToast(`Pedido #${order.folioKiosco} cargado correctamente`, "success");
+            if (typeof audioService !== 'undefined') audioService.playSuccess();
+
+        } catch (err) {
+            console.error("Error importing kiosk order:", err);
+            this.showToast("Error al importar el pedido", "error");
+        }
+    }
+
+    async deleteKioskOrder(orderId) {
+        if (!confirm('¿Estás seguro de eliminar este pedido del kiosco?')) return;
+        try {
+            await db.firestore.collection('pedidos_kiosco').doc(orderId).delete();
+            this.showKioskOrders(); // Refresh modal
+            this.showToast("Pedido eliminado", "info");
+        } catch (err) {
+            this.showToast("Error al eliminar", "error");
+        }
     }
 
     async showUserSwitcher() {
@@ -900,15 +1135,11 @@ class AromaticApp {
 
         const productId = targetItem ? targetItem.id : product.id;
 
-        // Calcular cantidad total deseada para este producto en EL ticket activo
-        const currentTotalInTicket = cart
-            .filter(item => item.id === productId)
-            .reduce((sum, item) => sum + item.quantity, 0);
+        // Validation data: Current item and its prospective state
+        const itemToValidate = targetItem ? { ...targetItem, quantity: targetItem.quantity + 1 } : { ...product, quantity: 1, extras: [], omitted: [], nota: '' };
 
-        const nextTotalInTicket = currentTotalInTicket + 1;
-
-        // Stock Validation (ahora pasamos el total deseado en este ticket)
-        const canAdd = await this.validateStock(productId, nextTotalInTicket);
+        // Stock Validation (Calculates cumulative demand across all tickets)
+        const canAdd = await this.validateStock(itemToValidate, index);
         if (!canAdd) return;
 
         if (targetItem) {
@@ -929,60 +1160,90 @@ class AromaticApp {
         this.updateCartUI();
     }
 
-    async validateStock(productId, activeTicketTargetTotal) {
+    async validateStock(itemToValidate, activeItemIndex = null) {
+        const productId = itemToValidate.id;
         const productos = await db.getCollection('productos');
         const targetProd = productos.find(p => p.id === productId);
 
         if (!targetProd || !targetProd.insumos || targetProd.insumos.length === 0) return true;
 
         const allInsumos = await db.getCollection('insumos');
+        const allProducts = productos;
 
-        const virtualInsumos = allInsumos.map(ins => {
-            let committedInOtherTickets = 0;
+        // 1. Calculate how much of each supply is committed in OTHER tickets and OTHER items of current ticket
+        const consumptionMap = {};
 
-            this.tickets.forEach((ticket, tIdx) => {
-                if (tIdx === this.activeTicketIdx) return; // Ignorar ticket activo (se suma aparte)
+        this.tickets.forEach((ticket, tIdx) => {
+            ticket.cart.forEach((cartItem, cIdx) => {
+                // Skip the exact item we are currently validating/incrementing
+                if (tIdx === this.activeTicketIdx && cIdx === activeItemIndex) return;
 
-                ticket.cart.forEach(cartItem => {
-                    if (cartItem.id === productId) {
-                        const recipeEntry = targetProd.insumos.find(ri => ri.idInsumo === ins.id);
+                const prod = allProducts.find(p => p.id === cartItem.id);
+                if (prod && prod.insumos) {
+                    prod.insumos.forEach(recipeItem => {
+                        // Skip if omitted
+                        if (cartItem.omitted && cartItem.omitted.includes(recipeItem.idInsumo)) return;
+
+                        consumptionMap[recipeItem.idInsumo] = (consumptionMap[recipeItem.idInsumo] || 0) + (recipeItem.cantidad * cartItem.quantity);
+                    });
+                }
+                // Also count extras consumption
+                if (cartItem.extras && cartItem.extras.length > 0) {
+                    cartItem.extras.forEach(extra => {
+                        const prodRef = allProducts.find(p => p.id === cartItem.id);
+                        const recipeEntry = prodRef?.insumos?.find(ri => ri.idInsumo === extra.idInsumo);
                         if (recipeEntry) {
-                            committedInOtherTickets += (recipeEntry.cantidad * cartItem.quantity);
+                            consumptionMap[extra.idInsumo] = (consumptionMap[extra.idInsumo] || 0) + (recipeEntry.cantidad * cartItem.quantity);
                         }
-                    } else {
-                        // Otros productos en otros tickets que usen este insumo
-                        const p = productos.find(prod => prod.id === cartItem.id);
-                        if (p && p.insumos) {
-                            const recipeEntry = p.insumos.find(ri => ri.idInsumo === ins.id);
-                            if (recipeEntry) {
-                                committedInOtherTickets += (recipeEntry.cantidad * cartItem.quantity);
-                            }
-                        }
-                    }
-                });
+                    });
+                }
             });
-
-            return { ...ins, virtualAvailable: ins.stock - committedInOtherTickets };
         });
 
-        let stockInsuficiente = [];
+        // 2. Add demand of the item being validated (prospective state)
+        targetProd.insumos.forEach(recipeItem => {
+            if (itemToValidate.omitted && itemToValidate.omitted.includes(recipeItem.idInsumo)) return;
+            consumptionMap[recipeItem.idInsumo] = (consumptionMap[recipeItem.idInsumo] || 0) + (recipeItem.cantidad * itemToValidate.quantity);
+        });
+        if (itemToValidate.extras && itemToValidate.extras.length > 0) {
+            itemToValidate.extras.forEach(extra => {
+                const recipeEntry = targetProd.insumos.find(ri => ri.idInsumo === extra.idInsumo);
+                if (recipeEntry) {
+                    consumptionMap[extra.idInsumo] = (consumptionMap[extra.idInsumo] || 0) + (recipeEntry.cantidad * itemToValidate.quantity);
+                }
+            });
+        }
 
-        for (const recipeItem of targetProd.insumos) {
-            const vInsumo = virtualInsumos.find(vi => vi.id === recipeItem.idInsumo);
-            if (vInsumo) {
-                const totalRequired = recipeItem.cantidad * activeTicketTargetTotal;
-                if (vInsumo.virtualAvailable < totalRequired) {
-                    stockInsuficiente.push({
-                        nombre: vInsumo.nombre,
-                        disponible: Math.max(0, vInsumo.virtualAvailable),
-                        requerido: totalRequired,
-                        unidad: vInsumo.unidad
-                    });
+        // 3. Final check against actual stock
+        let stockInsuficiente = [];
+        for (const insumoId in consumptionMap) {
+            const insumo = allInsumos.find(i => i.id === insumoId);
+            if (insumo) {
+                if (insumo.stock < consumptionMap[insumoId]) {
+                    // Only alert if the product being added actually uses this insumo
+                    const usesThis = targetProd.insumos.some(ri => ri.idInsumo === insumoId) ||
+                        (itemToValidate.extras && itemToValidate.extras.some(e => e.idInsumo === insumoId));
+
+                    if (usesThis) {
+                        stockInsuficiente.push({
+                            nombre: insumo.nombre,
+                            disponible: Math.max(0, insumo.stock - (consumptionMap[insumoId] - (recipeItemAmount(targetProd, insumoId) * itemToValidate.quantity))),
+                            requerido: consumptionMap[insumoId],
+                            itemRequerido: recipeItemAmount(targetProd, insumoId) * itemToValidate.quantity,
+                            unidad: insumo.unidad
+                        });
+                    }
                 }
             }
         }
 
+        function recipeItemAmount(prod, insId) {
+            const r = prod.insumos.find(ri => ri.idInsumo === insId);
+            return r ? r.cantidad : 0;
+        }
+
         if (stockInsuficiente.length > 0) {
+            // Simplified alert for POS consistency
             this.showStockAlert(targetProd.nombre, stockInsuficiente);
             return false;
         }
@@ -1357,28 +1618,36 @@ class AromaticApp {
 
             const splitOption = modal.querySelector('input[name="splitOption"]:checked')?.value || 'all';
 
-            if (splitOption === 'one' && this.cart[index].quantity > 1) {
-                // Separar 1 unidad
-                this.cart[index].quantity--;
-                const newItem = {
-                    ...JSON.parse(JSON.stringify(this.cart[index])), // Copia profunda de la base
-                    quantity: 1,
+            const runSave = async () => {
+                const prospectiveItem = {
+                    ...JSON.parse(JSON.stringify(this.cart[index])),
                     nota,
                     extras,
-                    omitted
+                    omitted,
+                    quantity: splitOption === 'one' ? 1 : this.cart[index].quantity
                 };
-                this.cart.push(newItem);
-            } else {
-                // Aplicar a todas las unidades de esta línea
-                this.cart[index].nota = nota;
-                this.cart[index].extras = extras;
-                this.cart[index].omitted = omitted;
-            }
 
-            db.logAction('pos', 'personalizar_producto', `Item: ${item.nombre}, Nota: ${nota || 'Ninguna'}, Extras: ${extras.length}, Omitidos: ${omitted.length}`);
+                // Validate stock for this specific configuration
+                const canSave = await this.validateStock(prospectiveItem, index);
+                if (!canSave) return;
 
-            modal.classList.add('hidden');
-            this.updateCartUI();
+                if (splitOption === 'one' && this.cart[index].quantity > 1) {
+                    // Separar 1 unidad
+                    this.cart[index].quantity--;
+                    this.cart.push(prospectiveItem);
+                } else {
+                    // Aplicar a todas las unidades de esta línea
+                    this.cart[index].nota = nota;
+                    this.cart[index].extras = extras;
+                    this.cart[index].omitted = omitted;
+                }
+
+                db.logAction('pos', 'personalizar_producto', `Item: ${item.nombre}, Nota: ${nota || 'Ninguna'}, Extras: ${extras.length}, Omitidos: ${omitted.length}`);
+                modal.classList.add('hidden');
+                this.updateCartUI();
+            };
+
+            runSave();
         };
     }
 
@@ -2443,8 +2712,11 @@ class AromaticApp {
         });
     }
 
+    closeModal() {
+        document.getElementById('modalContainer').classList.add('hidden');
+    }
 }
-
 
 const app = new AromaticApp();
 window.app = app;
+app.init(); // Trigger initialization after instance is set to window.app

@@ -122,8 +122,11 @@
                         title="Teclado Virtual" style="background: rgba(226, 150, 93, 0.1); color: var(--accent);">
                         <i data-lucide="keyboard"></i>
                     </button>
-                    <button class="btn-icon" id="notificationsBtn">
-                        <i data-lucide="bell"></i>
+                    <button class="btn-icon" id="kioskOrdersBtn" title="Pedidos del Kiosco"
+                        style="background: rgba(75, 54, 33, 0.1); color: var(--primary); position: relative;">
+                        <i data-lucide="monitor-smartphone"></i>
+                        <span id="kioskBadge" class="hidden"
+                            style="position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; display: flex; align-items: center; justify-content: center; font-weight: 800; border: 2px solid white;">0</span>
                     </button>
                     <div class="current-time" id="clock">12:00:00</div>
                 </div>
