@@ -1164,8 +1164,9 @@ class AromaticApp {
         const productId = itemToValidate.id;
         const productos = await db.getCollection('productos');
         const targetProd = productos.find(p => p.id === productId);
+        const hasRecipe = (targetProd && targetProd.insumos && targetProd.insumos.length > 0) || (itemToValidate.insumos && itemToValidate.insumos.length > 0);
 
-        if (!targetProd || !targetProd.insumos || targetProd.insumos.length === 0) return true;
+        if (!hasRecipe) return true;
 
         const allInsumos = await db.getCollection('insumos');
         const allProducts = productos;
@@ -1201,11 +1202,14 @@ class AromaticApp {
         });
 
         // 2. Add demand of the item being validated (prospective state)
-        targetProd.insumos.forEach(recipeItem => {
+        const validationRecipe = (targetProd && targetProd.insumos) ? targetProd.insumos : (itemToValidate.insumos || []);
+        
+        validationRecipe.forEach(recipeItem => {
             if (itemToValidate.omitted && itemToValidate.omitted.includes(recipeItem.idInsumo)) return;
             consumptionMap[recipeItem.idInsumo] = (consumptionMap[recipeItem.idInsumo] || 0) + (recipeItem.cantidad * itemToValidate.quantity);
         });
-        if (itemToValidate.extras && itemToValidate.extras.length > 0) {
+        
+        if (targetProd && itemToValidate.extras && itemToValidate.extras.length > 0) {
             itemToValidate.extras.forEach(extra => {
                 const recipeEntry = targetProd.insumos.find(ri => ri.idInsumo === extra.idInsumo);
                 if (recipeEntry) {
@@ -1221,15 +1225,15 @@ class AromaticApp {
             if (insumo) {
                 if (insumo.stock < consumptionMap[insumoId]) {
                     // Only alert if the product being added actually uses this insumo
-                    const usesThis = targetProd.insumos.some(ri => ri.idInsumo === insumoId) ||
+                    const usesThis = validationRecipe.some(ri => ri.idInsumo === insumoId) ||
                         (itemToValidate.extras && itemToValidate.extras.some(e => e.idInsumo === insumoId));
 
                     if (usesThis) {
                         stockInsuficiente.push({
                             nombre: insumo.nombre,
-                            disponible: Math.max(0, insumo.stock - (consumptionMap[insumoId] - (recipeItemAmount(targetProd, insumoId) * itemToValidate.quantity))),
+                            disponible: Math.max(0, insumo.stock - (consumptionMap[insumoId] - (recipeItemAmount(insumoId) * itemToValidate.quantity))),
                             requerido: consumptionMap[insumoId],
-                            itemRequerido: recipeItemAmount(targetProd, insumoId) * itemToValidate.quantity,
+                            itemRequerido: recipeItemAmount(insumoId) * itemToValidate.quantity,
                             unidad: insumo.unidad
                         });
                     }
@@ -1237,8 +1241,8 @@ class AromaticApp {
             }
         }
 
-        function recipeItemAmount(prod, insId) {
-            const r = prod.insumos.find(ri => ri.idInsumo === insId);
+        function recipeItemAmount(insId) {
+            const r = validationRecipe.find(ri => ri.idInsumo === insId);
             return r ? r.cantidad : 0;
         }
 
@@ -1648,6 +1652,240 @@ class AromaticApp {
             };
 
             runSave();
+        };
+    }
+
+    async showCustomItemModal() {
+        const modal = document.getElementById('modalContainer');
+        const modalContent = modal.querySelector('.modal-content');
+        const allInsumos = await db.getCollection('insumos');
+
+        modalContent.innerHTML = `
+            <div class="custom-item-modal" style="width: 700px; padding: 0; display: flex; overflow: hidden; border-radius: 20px;">
+                <!-- Left Panel: Configuration -->
+                <div style="flex: 1.2; padding: 25px; border-right: 1px solid #f1f5f9; background: white;">
+                    <div style="margin-bottom: 25px;">
+                        <h2 style="font-family: 'Playfair Display', serif; font-size: 1.8rem; color: var(--primary); margin: 0;">Producto Personalizado</h2>
+                        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 5px;">Venta especial con control de inventario</p>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 15px; margin-bottom: 20px;">
+                        <div class="input-group">
+                            <label style="font-weight: 700; font-size: 0.8rem; color: var(--primary); margin-bottom: 6px; display: block;">Nombre del Producto</label>
+                            <input type="text" id="customItemName" placeholder="Ej: Frappé de Limón Especial" class="large-input" style="font-size: 1rem; border-radius: 12px;">
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 25px;">
+                        <h3 style="font-size: 0.95rem; font-weight: 800; color: var(--primary); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="layers" style="width: 18px; color: var(--accent);"></i> Insumos a Descontar
+                        </h3>
+                        
+                        <div id="selectedInsumosContainer" style="margin-bottom: 15px; display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; padding-right: 5px;" class="hide-scrollbar">
+                            <div id="noInsumosMsg" style="text-align: center; padding: 20px; background: #f8fafc; border: 1.5px dashed #e2e8f0; border-radius: 16px; color: #94a3b8; font-size: 0.85rem;">
+                                No has seleccionado insumos todavía
+                            </div>
+                        </div>
+
+                        <div style="position: relative;">
+                            <i data-lucide="search" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #94a3b8; width: 16px;"></i>
+                            <input type="text" id="insumoSearch" placeholder="Buscar insumo para agregar..." 
+                                   style="width: 100%; padding: 12px 12px 12px 40px; border-radius: 12px; border: 1px solid #e2e8f0; font-size: 0.9rem; outline: none;">
+                            
+                            <div id="insumoSearchResults" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); z-index: 100; max-height: 200px; overflow-y: auto; margin-top: 5px;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn-secondary" id="cancelCustomItem" style="flex: 1; padding: 14px; border-radius: 14px; font-weight: 700;">CANCELAR</button>
+                        <button class="btn-primary" id="addCustomItemToCart" style="flex: 1.5; padding: 14px; border-radius: 14px; font-weight: 700; background: var(--accent); border-color: var(--accent);">AÑADIR A ORDEN</button>
+                    </div>
+                </div>
+
+                <!-- Right Panel: Financial Analysis -->
+                <div style="flex: 0.8; padding: 25px; background: #f8fafc; display: flex; flex-direction: column;">
+                    <h3 style="font-size: 0.8rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="line-chart" style="width: 16px;"></i> Análisis de Utilidad
+                    </h3>
+
+                    <div style="background: white; border-radius: 16px; padding: 15px; margin-bottom: 20px; border: 1px solid #e2e8f0;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <span style="color: #64748b; font-size: 0.85rem;">Costo de Insumos:</span>
+                            <span id="analysisCost" style="font-weight: 700; color: var(--primary); font-size: 1rem;">$0.00</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding-top: 10px; border-top: 1px dashed #e2e8f0;">
+                            <span style="color: #64748b; font-size: 0.85rem; display: flex; align-items: center; gap: 5px;">
+                                Precio Sugerido <i data-lucide="help-circle" style="width: 12px;" title="Costo x 3 (Margen del 66%)"></i>
+                            </span>
+                            <span id="analysisSuggested" style="font-weight: 800; color: var(--success); font-size: 1.1rem;">$0.00</span>
+                        </div>
+                    </div>
+
+                    <div class="input-group" style="margin-bottom: 25px;">
+                        <label style="font-weight: 700; font-size: 0.8rem; color: var(--primary); margin-bottom: 8px; display: block;">Precio de Venta Final ($)</label>
+                        <input type="number" id="customItemPrice" placeholder="0.00" class="large-input" style="font-size: 1.8rem; font-weight: 800; border-radius: 15px; border-color: var(--accent); color: var(--primary); text-align: center; background: white;">
+                    </div>
+
+                    <div id="profitCard" style="flex: 1; background: var(--primary); color: white; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; justify-content: center; gap: 15px; transition: all 0.3s ease;">
+                        <div style="text-align: center;">
+                            <span style="font-size: 0.75rem; text-transform: uppercase; opacity: 0.7;">Ganancia Estimada</span>
+                            <div id="analysisProfit" style="font-size: 2rem; font-weight: 800; margin-top: 5px;">$0.00</div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 0.8rem;">
+                                <span>Margen de Utilidad</span>
+                                <span id="analysisMargin" style="font-weight: 800;">0%</span>
+                            </div>
+                            <div style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden;">
+                                <div id="analysisMarginBar" style="height: 100%; background: var(--accent); width: 0%; transition: width 0.3s ease;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        modal.classList.remove('hidden');
+
+        const selectedInsumos = [];
+        const container = document.getElementById('selectedInsumosContainer');
+        const searchInput = document.getElementById('insumoSearch');
+        const resultsDiv = document.getElementById('insumoSearchResults');
+        const priceInput = document.getElementById('customItemPrice');
+
+        const updateCalculations = () => {
+            const totalCost = selectedInsumos.reduce((sum, si) => {
+                const ins = allInsumos.find(i => i.id === si.idInsumo);
+                return sum + ((ins ? (ins.costoUnitario || 0) : 0) * si.cantidad);
+            }, 0);
+
+            const sellingPrice = parseFloat(priceInput.value) || 0;
+            const suggestedPrice = totalCost * 3;
+            const profitValue = sellingPrice - totalCost;
+            const margin = sellingPrice > 0 ? (profitValue / sellingPrice) * 100 : 0;
+
+            document.getElementById('analysisCost').textContent = `$${totalCost.toFixed(2)}`;
+            document.getElementById('analysisSuggested').textContent = `$${suggestedPrice.toFixed(2)}`;
+            document.getElementById('analysisProfit').textContent = `$${profitValue.toFixed(2)}`;
+            document.getElementById('analysisMargin').textContent = `${Math.round(margin)}%`;
+            
+            const marginBar = document.getElementById('analysisMarginBar');
+            marginBar.style.width = `${Math.min(Math.max(margin, 0), 100)}%`;
+            
+            const profitCard = document.getElementById('profitCard');
+            if (margin < 30) {
+                profitCard.style.background = '#e11d48'; // Danger color
+                marginBar.style.background = '#fca5a5';
+            } else if (margin < 50) {
+                profitCard.style.background = '#f59e0b'; // Warning color
+                marginBar.style.background = '#fef3c7';
+            } else {
+                profitCard.style.background = 'var(--primary)'; // Success/Normal
+                marginBar.style.background = 'var(--accent)';
+            }
+        };
+
+        const renderSelected = () => {
+            if (selectedInsumos.length === 0) {
+                container.innerHTML = `<div id="noInsumosMsg" style="text-align: center; padding: 20px; background: #f8fafc; border: 1.5px dashed #e2e8f0; border-radius: 16px; color: #94a3b8; font-size: 0.85rem;">No has seleccionado insumos todavía</div>`;
+                updateCalculations();
+                return;
+            }
+
+            container.innerHTML = selectedInsumos.map((si, idx) => `
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 15px; background: white; border: 1px solid #f1f5f9; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-weight: 700; color: var(--primary); font-size: 0.9rem;">${si.nombre}</span>
+                        <span style="font-size: 0.75rem; color: #94a3b8; background: #f8fafc; padding: 2px 6px; border-radius: 4px; border: 1px solid #f1f5f9;">${si.unidad}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <input type="number" value="${si.cantidad}" onchange="window._setInsumoCant(${idx}, this.value)" 
+                               style="width: 50px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; text-align: center; font-weight: 700; color: var(--primary); outline: none; padding: 4px;">
+                        <button onclick="window._removeInsumo(${idx})" style="color: #ef4444; border: none; background: transparent; cursor: pointer; padding: 5px;"><i data-lucide="trash-2" style="width: 16px;"></i></button>
+                    </div>
+                </div>
+            `).join('');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            updateCalculations();
+        };
+
+        window._setInsumoCant = (idx, val) => {
+            selectedInsumos[idx].cantidad = parseFloat(val) || 1;
+            renderSelected();
+        };
+        window._removeInsumo = (idx) => {
+            selectedInsumos.splice(idx, 1);
+            renderSelected();
+        };
+
+        searchInput.oninput = (e) => {
+            const query = e.target.value.toLowerCase();
+            if (!query) {
+                resultsDiv.style.display = 'none';
+                return;
+            }
+
+            const filtered = allInsumos.filter(i => 
+                i.nombre.toLowerCase().includes(query) && 
+                !selectedInsumos.some(si => si.idInsumo === i.id)
+            );
+
+            if (filtered.length > 0) {
+                resultsDiv.innerHTML = filtered.map(i => `
+                    <div class="search-result-item" onclick="window._addInsumo('${i.id}', '${i.nombre}', '${i.unidad}')" 
+                         style="padding: 10px 15px; cursor: pointer; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between;">
+                        <span>${i.nombre}</span>
+                        <small style="color: #64748b;">$${(i.costoUnitario || 0).toFixed(2)} / ${i.unidad}</small>
+                    </div>
+                `).join('');
+                resultsDiv.style.display = 'block';
+            } else {
+                resultsDiv.style.display = 'none';
+            }
+        };
+
+        window._addInsumo = (id, nombre, unidad) => {
+            selectedInsumos.push({ idInsumo: id, nombre, unidad, cantidad: 1 });
+            renderSelected();
+            searchInput.value = '';
+            resultsDiv.style.display = 'none';
+        };
+
+        priceInput.oninput = () => updateCalculations();
+
+        document.getElementById('cancelCustomItem').onclick = () => {
+            modal.classList.add('hidden');
+        };
+
+        document.getElementById('addCustomItemToCart').onclick = async () => {
+            const nombre = document.getElementById('customItemName').value.trim() || 'Producto Personalizado';
+            const precio = parseFloat(priceInput.value) || 0;
+
+            if (selectedInsumos.length === 0) {
+                return app.showToast("Debe agregar al menos un insumo", "warning");
+            }
+
+            const customProduct = {
+                id: 'custom_' + Date.now(),
+                nombre: nombre,
+                precio: precio,
+                categoria: 'Personalizado',
+                imagen: 'https://cdn-icons-png.flaticon.com/512/924/924412.png',
+                insumos: selectedInsumos.map(si => ({
+                    idInsumo: si.idInsumo,
+                    cantidad: si.cantidad
+                }))
+            };
+
+            const canAdd = await this.validateStock({ ...customProduct, quantity: 1, extras: [], omitted: [] });
+            if (!canAdd) return;
+
+            this.cart.push({ ...customProduct, quantity: 1, extras: [], omitted: [], nota: '' });
+            this.updateCartUI();
+            modal.classList.add('hidden');
+            audioService.playClick();
         };
     }
 
@@ -2313,12 +2551,15 @@ class AromaticApp {
         const productos = await db.getCollection('productos');
         const product = productos.find(p => p.id === productId);
 
-        if (product && product.insumos && product.insumos.length > 0) {
+        // Check for recipe: either from permanent product or dynamic recipe in the cart item itself
+        const recipe = (product && product.insumos) ? product.insumos : (cartItem.insumos || []);
+
+        if (recipe && recipe.length > 0) {
             const insumos = await db.getCollection('insumos');
 
-            // 1. Discount Base Recipe
-            for (const recipeItem of product.insumos) {
-                // SKIP if the ingredient is marked as OMITTED by the user
+            // 1. Discount Recipe Ingredients
+            for (const recipeItem of recipe) {
+                // SKIP if the ingredient is marked as OMITTED by the user (only for permanent products)
                 if (cartItem.omitted && cartItem.omitted.includes(recipeItem.idInsumo)) {
                     continue;
                 }
@@ -2332,8 +2573,8 @@ class AromaticApp {
             }
 
             // 2. Discount Extras (Only if we are in 'subtract' mode and they exist)
-            // Note: Currently extras add the SAME amount as defined in the recipe for that insumo
-            if (cartItem.extras && cartItem.extras.length > 0) {
+            // Only applicable if we have a base product to reference recipe amounts
+            if (product && cartItem.extras && cartItem.extras.length > 0) {
                 for (const extra of cartItem.extras) {
                     const recipeEntry = product.insumos.find(ri => ri.idInsumo === extra.idInsumo);
                     if (recipeEntry) {

@@ -79,6 +79,9 @@ const posView = {
                             <i data-lucide="${cat.icono || 'package'}" style="width: 18px;"></i> ${cat.nombre}
                         </div>
                     `).join('')}
+                    <div class="chip special-chip" onclick="app.showCustomItemModal()" style="border-style: dashed; border-color: var(--accent); color: var(--accent); background: rgba(226, 150, 93, 0.05);">
+                        <i data-lucide="plus-circle" style="width: 18px;"></i> Personalizado
+                    </div>
                 </div>
                 <div class="product-grid" id="productGrid">
                     ${this.renderProducts(this.filteredProducts)}
