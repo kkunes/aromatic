@@ -40,28 +40,13 @@ body {
     color: var(--text-main);
     overflow: hidden;
     /* App feel */
-    height: 100vh; /* Fallback for older browsers */
-    height: 100dvh; /* Modern mobile screens */
-    height: stretch; /* Alternative */
+    height: 100vh;
     width: 100vw;
-}
-
-/* Ensure html also respects full height in Safari */
-html {
-    height: 100%;
-    /* -webkit-fill-available is often required for older Safari */
-    height: -webkit-fill-available;
-}
-
-/* Safari specific fix for body */
-body {
-    min-height: -webkit-fill-available;
 }
 
 .app-container {
     display: flex;
     height: 100vh;
-    height: 100dvh;
     width: 100vw;
 }
 

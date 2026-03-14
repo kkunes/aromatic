@@ -102,9 +102,9 @@ const usersView = {
                         <div class="input-group">
                             <label>Rol / Privilegios</label>
                             <select id="userRole" required class="large-input" style="font-size: 1rem; padding: 14px; cursor: pointer;">
-                                <option value="mesero" ${(user && user.rol === 'mesero') ? 'selected' : ''}>Mesero</option>
-                                <option value="cajero" ${(user && user.rol === 'cajero') ? 'selected' : ''}>Cajero</option>
-                                <option value="admin" ${(user && user.rol === 'admin') ? 'selected' : ''}>Administrador</option>
+                                <option value="mesero" ${user?.rol === 'mesero' ? 'selected' : ''}>Mesero</option>
+                                <option value="cajero" ${user?.rol === 'cajero' ? 'selected' : ''}>Cajero</option>
+                                <option value="admin" ${user?.rol === 'admin' ? 'selected' : ''}>Administrador</option>
                             </select>
                         </div>
                     </div>

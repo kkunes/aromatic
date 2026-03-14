@@ -426,7 +426,7 @@ const suppliesView = {
         if (confirm) {
             const insumo = this.insumos.find(i => i.id === id);
             await db.deleteDocument('insumos', id);
-            await db.logAction('inventario', 'eliminar_insumo', `Insumo: "${insumo && insumo.nombre}"`);
+            await db.logAction('inventario', 'eliminar_insumo', `Insumo: "${insumo?.nombre}"`);
             app.showToast('Insumo eliminado');
             this.app.renderView('supplies');
         }

@@ -68,7 +68,7 @@ const inventoryView = {
                                     <td>
                                         <div style="display: flex; align-items: center; gap: 8px;">
                                             <div style="width: 28px; height: 28px; background: ${this.getCategoryColor(p.categoria, 0.1)}; color: ${this.getCategoryColor(p.categoria, 1)}; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                                                <i data-lucide="${(() => { const c = this.categorias.find(cat => cat.nombre === p.categoria); return (c && c.icono) || 'package'; })()}" style="width: 14px;"></i>
+                                                <i data-lucide="${this.categorias.find(c => c.nombre === p.categoria)?.icono || 'package'}" style="width: 14px;"></i>
                                             </div>
                                             <span class="badge" style="background: ${this.getCategoryColor(p.categoria, 0.1)}; color: ${this.getCategoryColor(p.categoria, 1)}; margin: 0;">
                                                 ${p.categoria}
@@ -155,7 +155,7 @@ const inventoryView = {
                                     <td>
                                         <div style="display: flex; align-items: center; gap: 8px;">
                                             <div style="width: 28px; height: 28px; background: ${this.getCategoryColor(p.categoria, 0.1)}; color: ${this.getCategoryColor(p.categoria, 1)}; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                                                <i data-lucide="${(() => { const c = this.categorias.find(cat => cat.nombre === p.categoria); return (c && c.icono) || 'package'; })()}" style="width: 14px;"></i>
+                                                <i data-lucide="${this.categorias.find(c => c.nombre === p.categoria)?.icono || 'package'}" style="width: 14px;"></i>
                                             </div>
                                             <span class="badge" style="background: ${this.getCategoryColor(p.categoria, 0.1)}; color: ${this.getCategoryColor(p.categoria, 1)}; margin: 0;">
                                                 ${p.categoria}
@@ -218,7 +218,7 @@ const inventoryView = {
         if (!producto.insumos || producto.insumos.length === 0) return 0;
         return producto.insumos.reduce((total, item) => {
             const insumo = this.insumos.find(i => i.id === item.idInsumo);
-            return total + (item.cantidad * (insumo && insumo.costoUnitario ? insumo.costoUnitario : 0));
+            return total + (item.cantidad * (insumo?.costoUnitario || 0));
         }, 0);
     },
 
@@ -388,11 +388,10 @@ const inventoryView = {
         });
 
         const updateCostProfit = () => {
-            const priceInput = document.getElementById('prodPrecio');
-            const price = priceInput ? parseFloat(priceInput.value) : 0;
+            const price = parseFloat(document.getElementById('prodPrecio')?.value) || 0;
             const cost = recipeItems.reduce((acc, item) => {
                 const ins = this.insumos.find(i => i.id === item.idInsumo);
-                return acc + (item.cantidad * (ins && ins.costoUnitario ? ins.costoUnitario : 0));
+                return acc + (item.cantidad * (ins?.costoUnitario || 0));
             }, 0);
             const profit = price - cost;
             const percentage = price > 0 ? (profit / price) * 100 : 0;
@@ -429,12 +428,12 @@ const inventoryView = {
 
             container.innerHTML = recipeItems.map((item, idx) => {
                 const insumo = this.insumos.find(i => i.id === item.idInsumo);
-                const costoItem = (item.cantidad * (insumo && insumo.costoUnitario ? insumo.costoUnitario : 0)).toFixed(2);
+                const costoItem = (item.cantidad * (insumo?.costoUnitario || 0)).toFixed(2);
                 return `
                     <div style="display: flex; align-items: center; justify-content: space-between; background: #fff; padding: 12px; border-radius: 12px; margin-bottom: 8px; border: 1px solid #f1f5f9; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
                         <div>
                             <span style="font-weight: 500; color: #334155; display: block;">${insumo ? insumo.nombre : 'Desconocido'}</span>
-                            <small style="color: #94a3b8;">$${(insumo && insumo.costoUnitario ? insumo.costoUnitario.toFixed(2) : '0.00')} / ${(insumo && insumo.unidad) || ''}</small>
+                            <small style="color: #94a3b8;">$${insumo?.costoUnitario?.toFixed(2) || '0.00'} / ${insumo?.unidad}</small>
                         </div>
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <div style="text-align: right;">
@@ -633,9 +632,9 @@ const inventoryView = {
         }
 
         const prod = this.productos.find(p => p.id === id);
-        if (confirm(`¿Estás seguro de que deseas eliminar "${prod && prod.nombre}"?`)) {
+        if (confirm(`¿Estás seguro de que deseas eliminar "${prod?.nombre}"?`)) {
             await db.deleteDocument('productos', id);
-            await db.logAction('inventario', 'eliminar_producto', `Producto: "${prod && prod.nombre}"`);
+            await db.logAction('inventario', 'eliminar_producto', `Producto: "${prod?.nombre}"`);
             this.app.renderView('inventory');
         }
     },

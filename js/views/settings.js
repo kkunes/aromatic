@@ -193,10 +193,10 @@ const settingsView = {
                     </div>
 
                     <!-- Database Engine Selector -->
-                    <div class="card" style="padding: 30px; grid-column: span 2; border: 2px solid ${(settings.databaseConfig && settings.databaseConfig.modoLocal) ? 'var(--accent)' : '#eee'};">
+                    <div class="card" style="padding: 30px; grid-column: span 2; border: 2px solid ${settings.databaseConfig?.modoLocal ? 'var(--accent)' : '#eee'};">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
                             <div style="display: flex; align-items: center; gap: 12px;">
-                                <div style="width: 42px; height: 42px; background: ${(settings.databaseConfig && settings.databaseConfig.modoLocal) ? 'var(--accent-light)' : '#f1f5f9'}; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: ${(settings.databaseConfig && settings.databaseConfig.modoLocal) ? 'var(--accent)' : 'var(--primary)'};">
+                                <div style="width: 42px; height: 42px; background: ${settings.databaseConfig?.modoLocal ? 'var(--accent-light)' : '#f1f5f9'}; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: ${settings.databaseConfig?.modoLocal ? 'var(--accent)' : 'var(--primary)'};">
                                     <i data-lucide="database" style="width: 24px;"></i>
                                 </div>
                                 <div>
@@ -205,11 +205,11 @@ const settingsView = {
                                 </div>
                             </div>
                             <div style="display: flex; align-items: center; gap: 12px; background: #f8fafc; padding: 10px 20px; border-radius: 16px;">
-                                <span style="font-weight: 700; font-size: 0.85rem; color: ${(settings.databaseConfig && settings.databaseConfig.modoLocal) ? 'var(--accent)' : 'var(--primary)'}">
-                                    ${(settings.databaseConfig && settings.databaseConfig.modoLocal) ? 'MODO LOCAL ACTIVO' : 'MODO NUBE (FIREBASE)'}
+                                <span style="font-weight: 700; font-size: 0.85rem; color: ${settings.databaseConfig?.modoLocal ? 'var(--accent)' : 'var(--primary)'}">
+                                    ${settings.databaseConfig?.modoLocal ? 'MODO LOCAL ACTIVO' : 'MODO NUBE (FIREBASE)'}
                                 </span>
                                 <label class="switch">
-                                    <input type="checkbox" id="dbModeToggle" ${(settings.databaseConfig && settings.databaseConfig.modoLocal) ? 'checked' : ''}>
+                                    <input type="checkbox" id="dbModeToggle" ${settings.databaseConfig?.modoLocal ? 'checked' : ''}>
                                     <span class="slider round"></span>
                                 </label>
                             </div>
@@ -586,7 +586,7 @@ const settingsView = {
                         <div style="display: flex; align-items: center; gap: 12px; background: white; padding: 12px 20px; border-radius: 16px; border: 1px solid #f1f5f9;">
                             <span style="font-weight: 600; font-size: 0.9rem; color: var(--primary);">Habilitar Auditoría</span>
                             <label class="switch">
-                                <input type="checkbox" id="auditActive" ${(db.getSettings().auditoria && db.getSettings().auditoria.activo) ? 'checked' : ''} onchange="settingsView.toggleAudit(this.checked)">
+                                <input type="checkbox" id="auditActive" ${db.getSettings().auditoria?.activo ? 'checked' : ''} onchange="settingsView.toggleAudit(this.checked)">
                                 <span class="slider round"></span>
                             </label>
                         </div>
@@ -667,9 +667,9 @@ const settingsView = {
                         <div class="input-group">
                             <label>Rol</label>
                             <select id="uRole" class="large-input" style="font-size: 1rem; padding: 12px;">
-                                <option value="mesero" ${(user && user.rol === 'mesero') ? 'selected' : ''}>Mesero</option>
-                                <option value="cajero" ${(user && user.rol === 'cajero') ? 'selected' : ''}>Cajero</option>
-                                <option value="admin" ${(user && user.rol === 'admin') ? 'selected' : ''}>Admin</option>
+                                <option value="mesero" ${user?.rol === 'mesero' ? 'selected' : ''}>Mesero</option>
+                                <option value="cajero" ${user?.rol === 'cajero' ? 'selected' : ''}>Cajero</option>
+                                <option value="admin" ${user?.rol === 'admin' ? 'selected' : ''}>Admin</option>
                             </select>
                         </div>
                     </div>
@@ -718,9 +718,9 @@ const settingsView = {
 
         if (id === 'U1') return; // Protect original admin
         const u = this.usuarios.find(user => user.id === id);
-        if (confirm(`¿Eliminar al usuario "${u && u.nombre}" definitivamente?`)) {
+        if (confirm(`¿Eliminar al usuario "${u?.nombre}" definitivamente?`)) {
             await db.deleteDocument('usuarios', id);
-            await db.logAction('usuarios', 'eliminar_usuario', `Usuario: "${u && u.nombre}"`);
+            await db.logAction('usuarios', 'eliminar_usuario', `Usuario: "${u?.nombre}"`);
             app.renderView('settings');
         }
     },
@@ -1143,7 +1143,7 @@ const settingsView = {
     async renderPromotionsSection() {
         const settings = db.getSettings();
         const promos = await db.getCollection('promociones');
-        const activo = (settings.promociones && settings.promociones.activo !== undefined) ? settings.promociones.activo : true;
+        const activo = settings.promociones?.activo ?? true;
 
         return `
             <div class="settings-container fade-in">
