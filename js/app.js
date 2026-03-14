@@ -204,13 +204,13 @@ class AromaticApp {
         const settings = db.getSettings();
         const logoName = document.getElementById('bizNameSidebar');
         const logoImg = document.querySelector('.logo img.logo-icon');
-        const bizName = settings.negocio?.nombre || 'PRO POS';
+        const bizName = (settings.negocio && settings.negocio.nombre) || 'PRO POS';
 
         if (logoName) {
             logoName.textContent = bizName;
         }
 
-        if (logoImg && settings.negocio?.logo) {
+        if (logoImg && settings.negocio && settings.negocio.logo) {
             logoImg.src = settings.negocio.logo;
         }
 
@@ -319,8 +319,8 @@ class AromaticApp {
 
             // Sort in memory instead
             orders.sort((a, b) => {
-                const dateA = a.fecha?.toDate?.() || new Date(0);
-                const dateB = b.fecha?.toDate?.() || new Date(0);
+                const dateA = (a.fecha && a.fecha.toDate ? a.fecha.toDate() : null) || new Date(0);
+                const dateB = (b.fecha && b.fecha.toDate ? b.fecha.toDate() : null) || new Date(0);
                 return dateB - dateA;
             });
 
@@ -360,7 +360,7 @@ class AromaticApp {
                         </div>`;
                 } else {
                     listContainer.innerHTML = filtered.map(order => {
-                        const orderDate = order.fecha?.toDate?.() || new Date();
+                        const orderDate = (order.fecha && order.fecha.toDate ? order.fecha.toDate() : null) || new Date();
                         return `
                             <div class="card kiosk-order-card" id="kiosk-order-${order.id}" style="margin-bottom: 12px; padding: 0; border-radius: 20px; border: 1.5px solid #f1f5f9; overflow: hidden; transition: all 0.3s ease;">
                                 <!-- Order Header (Summary) -->
@@ -1192,7 +1192,7 @@ class AromaticApp {
                 if (cartItem.extras && cartItem.extras.length > 0) {
                     cartItem.extras.forEach(extra => {
                         const prodRef = allProducts.find(p => p.id === cartItem.id);
-                        const recipeEntry = prodRef?.insumos?.find(ri => ri.idInsumo === extra.idInsumo);
+                        const recipeEntry = (prodRef && prodRef.insumos) ? prodRef.insumos.find(ri => ri.idInsumo === extra.idInsumo) : null;
                         if (recipeEntry) {
                             consumptionMap[extra.idInsumo] = (consumptionMap[extra.idInsumo] || 0) + (recipeEntry.cantidad * cartItem.quantity);
                         }
@@ -1620,7 +1620,8 @@ class AromaticApp {
                 omitted.push(cb.getAttribute('data-id'));
             });
 
-            const splitOption = modal.querySelector('input[name="splitOption"]:checked')?.value || 'all';
+            const splitOptionEl = modal.querySelector('input[name="splitOption"]:checked');
+            const splitOption = splitOptionEl ? splitOptionEl.value : 'all';
 
             const runSave = async () => {
                 const prospectiveItem = {
@@ -1880,7 +1881,8 @@ class AromaticApp {
             const nombre = document.getElementById('customItemName').value.trim() || 'Producto Personalizado';
             const precio = parseFloat(priceInput.value) || 0;
             const notas = document.getElementById('customItemNotes').value.trim();
-            const saveFavorite = document.getElementById('saveCustomAsFavorite')?.checked || false;
+            const favCheckbox = document.getElementById('saveCustomAsFavorite');
+            const saveFavorite = favCheckbox ? favCheckbox.checked : false;
             const currentTicket = this.tickets[this.activeTicketIdx];
 
             if (selectedInsumos.length === 0) {

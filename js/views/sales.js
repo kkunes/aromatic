@@ -14,7 +14,7 @@ const salesView = {
         const filtered = dateVentas.filter(v => {
             if (!this.filterQuery) return true;
             const folio = (v.folio || v.id || '').toString().toLowerCase();
-            const cliente = v.cliente?.nombre?.toLowerCase() || '';
+            const cliente = (v.cliente && v.cliente.nombre) ? v.cliente.nombre.toLowerCase() : '';
             const productos = v.items.map(i => i.nombre.toLowerCase()).join(' ');
             const query = this.filterQuery.toLowerCase();
             return folio.includes(query) || cliente.includes(query) || productos.includes(query);
@@ -373,7 +373,7 @@ const salesView = {
             const filtered = dateVentas.filter(v => {
                 if (!this.filterQuery) return true;
                 const folio = (v.folio || v.id || '').toString().toLowerCase();
-                const cliente = v.cliente?.nombre?.toLowerCase() || '';
+                const cliente = (v.cliente && v.cliente.nombre) ? v.cliente.nombre.toLowerCase() : '';
                 const productos = v.items.map(i => i.nombre.toLowerCase()).join(' ');
                 const query = this.filterQuery.toLowerCase();
                 return folio.includes(query) || cliente.includes(query) || productos.includes(query);

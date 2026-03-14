@@ -50,7 +50,7 @@ const db = {
 
     async getCollection(name) {
         const settings = this.getSettings();
-        if (settings.databaseConfig?.modoLocal || !this.firestore) return this.getLocalCollection(name);
+        if ((settings.databaseConfig && settings.databaseConfig.modoLocal) || !this.firestore) return this.getLocalCollection(name);
         try {
             const snapshot = await this.firestore.collection(name).get();
             return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
@@ -62,7 +62,7 @@ const db = {
 
     async setCollection(name, data) {
         const settings = this.getSettings();
-        if (settings.databaseConfig?.modoLocal || !this.firestore) {
+        if ((settings.databaseConfig && settings.databaseConfig.modoLocal) || !this.firestore) {
             return this.setLocalCollection(name, data);
         }
         // For Firestore, this is trickier as we usually don't wipe collections
@@ -84,7 +84,7 @@ const db = {
 
     async getActivePromotions() {
         const settings = this.getSettings();
-        if (!settings.promociones?.activo) return [];
+        if (!(settings.promociones && settings.promociones.activo)) return [];
 
         const allPromos = await this.getCollection('promociones');
         const now = new Date();
@@ -157,7 +157,7 @@ const db = {
 
     async addDocument(collection, data) {
         const settings = this.getSettings();
-        if (settings.databaseConfig?.modoLocal || !this.firestore) {
+        if ((settings.databaseConfig && settings.databaseConfig.modoLocal) || !this.firestore) {
             const current = await this.getLocalCollection(collection);
             const newItem = { id: Date.now().toString(), ...data, createdAt: new Date().toISOString() };
             current.push(newItem);
@@ -172,7 +172,7 @@ const db = {
 
     async setDocument(collection, id, data) {
         const settings = this.getSettings();
-        if (settings.databaseConfig?.modoLocal || !this.firestore) {
+        if ((settings.databaseConfig && settings.databaseConfig.modoLocal) || !this.firestore) {
             const current = await this.getLocalCollection(collection);
             const index = current.findIndex(i => i.id === id);
             if (index >= 0) {
@@ -191,7 +191,7 @@ const db = {
 
     async updateDocument(collection, id, data) {
         const settings = this.getSettings();
-        if (settings.databaseConfig?.modoLocal || !this.firestore) {
+        if ((settings.databaseConfig && settings.databaseConfig.modoLocal) || !this.firestore) {
             const current = await this.getLocalCollection(collection);
             const index = current.findIndex(item => item.id === id);
             if (index !== -1) {
@@ -205,7 +205,7 @@ const db = {
 
     async deleteDocument(collection, id) {
         const settings = this.getSettings();
-        if (settings.databaseConfig?.modoLocal || !this.firestore) {
+        if ((settings.databaseConfig && settings.databaseConfig.modoLocal) || !this.firestore) {
             const current = await this.getLocalCollection(collection);
             const filtered = current.filter(item => item.id !== id);
             await this.setLocalCollection(collection, filtered);
@@ -355,7 +355,7 @@ const db = {
 
     async logAction(context, action, details) {
         const settings = this.getSettings();
-        if (!settings.auditoria?.activo) return;
+        if (!(settings.auditoria && settings.auditoria.activo)) return;
 
         const user = this.getCurrentUser();
         const event = {
@@ -457,8 +457,8 @@ const db = {
         return {
             ...defaults,
             ...parsed,
-            folioInicio: parsed.folioInicio ?? defaults.folioInicio,
-            folioActual: parsed.folioActual ?? defaults.folioActual,
+            folioInicio: (parsed.folioInicio !== undefined && parsed.folioInicio !== null) ? parsed.folioInicio : defaults.folioInicio,
+            folioActual: (parsed.folioActual !== undefined && parsed.folioActual !== null) ? parsed.folioActual : defaults.folioActual,
             negocio: {
                 ...defaults.negocio,
                 ...(parsed.negocio || {})
@@ -476,7 +476,7 @@ const db = {
                 ...(parsed.auditoria || {})
             },
             promociones: {
-                activo: parsed.promociones?.activo ?? true
+                activo: (parsed.promociones && parsed.promociones.activo !== undefined && parsed.promociones.activo !== null) ? parsed.promociones.activo : true
             }
         };
     },

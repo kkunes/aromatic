@@ -23,8 +23,8 @@ const posView = {
 
             // Sort products global (optional but provides consistency)
             this.products.sort((a, b) => {
-                const orderA = menuConfig.productOrder?.[a.categoria] || [];
-                const orderB = menuConfig.productOrder?.[b.categoria] || [];
+                const orderA = (menuConfig.productOrder && menuConfig.productOrder[a.categoria]) || [];
+                const orderB = (menuConfig.productOrder && menuConfig.productOrder[b.categoria]) || [];
                 const idxA = orderA.indexOf(a.id);
                 const idxB = orderB.indexOf(b.id);
 
@@ -33,8 +33,10 @@ const posView = {
                     return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
                 }
                 // If different categories, sort by category order
-                const catIdxA = menuConfig.categoryOrder?.indexOf(a.categoria) ?? 999;
-                const catIdxB = menuConfig.categoryOrder?.indexOf(b.categoria) ?? 999;
+                const catIdxA_raw = menuConfig.categoryOrder ? menuConfig.categoryOrder.indexOf(a.categoria) : -1;
+                const catIdxA = (catIdxA_raw !== -1) ? catIdxA_raw : 999;
+                const catIdxB_raw = menuConfig.categoryOrder ? menuConfig.categoryOrder.indexOf(b.categoria) : -1;
+                const catIdxB = (catIdxB_raw !== -1) ? catIdxB_raw : 999;
                 return catIdxA - catIdxB;
             });
             this.filteredProducts = [...this.products];
