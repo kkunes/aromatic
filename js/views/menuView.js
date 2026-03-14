@@ -16,7 +16,16 @@ const menuView = {
             backgroundColor: '#fdfaf6',
             textColor: '#2d231a',
             fontFamily: "'Playfair Display', serif",
-            layout: 'modern' // 'classic', 'minimal'
+            layout: 'modern', // 'classic', 'minimal'
+            headerAlignment: 'center',
+            showLogo: true,
+            logoSize: 80,
+            cardStyle: 'elevated', // 'flat', 'bordered'
+            cardRadius: 20,
+            showPriceBold: true,
+            backgroundTexture: 'none', // 'paper', 'dots', 'linen'
+            categoryHeaderStyle: 'pill', // 'simple', 'underline'
+            footerMessage: 'Gracias por su visita'
         },
         showDescriptions: true,
         showImages: true,
@@ -144,40 +153,122 @@ const menuView = {
 
                         <!-- Tab Content: Design -->
                         <div id="tab-design" class="menu-tab-content hidden">
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
-                                <div class="input-group">
-                                    <label>Color Principal (Cabeceras)</label>
-                                    <input type="color" value="${this.menuConfig.theme.primaryColor}" onchange="menuView.updateTheme('primaryColor', this.value)" style="width: 100%; height: 50px; border-radius: 12px; border: 1.5px solid #e2e8f0; padding: 5px; cursor: pointer;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
+                                <!-- Col 1: Core Colors & Fonts -->
+                                <div style="display: flex; flex-direction: column; gap: 20px;">
+                                    <h3 style="font-size: 1rem; color: var(--primary); border-bottom: 1.5px solid #f1f5f9; padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                                        <i data-lucide="palette" style="width: 18px;"></i> Colores y Textos
+                                    </h3>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                        <div class="input-group">
+                                            <label>Color Principal</label>
+                                            <input type="color" value="${this.menuConfig.theme.primaryColor}" onchange="menuView.updateTheme('primaryColor', this.value)" style="width: 100%; height: 45px; border-radius: 12px; border: 1px solid #e2e8f0; padding: 4px; cursor: pointer;">
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Color Acento</label>
+                                            <input type="color" value="${this.menuConfig.theme.secondaryColor}" onchange="menuView.updateTheme('secondaryColor', this.value)" style="width: 100%; height: 45px; border-radius: 12px; border: 1px solid #e2e8f0; padding: 4px; cursor: pointer;">
+                                        </div>
+                                    </div>
+                                    <div class="input-group">
+                                        <label>Tipografía Principal</label>
+                                        <select onchange="menuView.updateTheme('fontFamily', this.value)" class="premium-input" style="width: 100%;">
+                                            <option value="'Playfair Display', serif" ${this.menuConfig.theme.fontFamily.includes('Playfair') ? 'selected' : ''}>Elegante (Playfair Display)</option>
+                                            <option value="'Outfit', sans-serif" ${this.menuConfig.theme.fontFamily.includes('Outfit') ? 'selected' : ''}>Moderno (Outfit)</option>
+                                            <option value="'Inter', sans-serif" ${this.menuConfig.theme.fontFamily.includes('Inter') ? 'selected' : ''}>Limpio (Inter)</option>
+                                            <option value="'Georgia', serif" ${this.menuConfig.theme.fontFamily.includes('Georgia') ? 'selected' : ''}>Clásico (Georgia)</option>
+                                        </select>
+                                    </div>
+                                    <div class="input-group">
+                                        <label>Fondo y Textura</label>
+                                        <div style="display: flex; gap: 10px;">
+                                            <input type="color" value="${this.menuConfig.theme.backgroundColor}" onchange="menuView.updateTheme('backgroundColor', this.value)" style="width: 60px; height: 45px; border-radius: 12px; border: 1px solid #e2e8f0; padding: 4px; cursor: pointer;">
+                                            <select onchange="menuView.updateTheme('backgroundTexture', this.value)" class="premium-input" style="flex: 1;">
+                                                <option value="none" ${this.menuConfig.theme.backgroundTexture === 'none' ? 'selected' : ''}>Sin Textura</option>
+                                                <option value="paper" ${this.menuConfig.theme.backgroundTexture === 'paper' ? 'selected' : ''}>Papel Pergamino</option>
+                                                <option value="linen" ${this.menuConfig.theme.backgroundTexture === 'linen' ? 'selected' : ''}>Lino Suave</option>
+                                                <option value="dots" ${this.menuConfig.theme.backgroundTexture === 'dots' ? 'selected' : ''}>Puntos Minimal</option>
+                                            </select>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="input-group">
-                                    <label>Color de Acento</label>
-                                    <input type="color" value="${this.menuConfig.theme.secondaryColor}" onchange="menuView.updateTheme('secondaryColor', this.value)" style="width: 100%; height: 50px; border-radius: 12px; border: 1.5px solid #e2e8f0; padding: 5px; cursor: pointer;">
-                                </div>
-                                <div class="input-group">
-                                    <label>Tipografía</label>
-                                    <select onchange="menuView.updateTheme('fontFamily', this.value)" class="premium-input" style="width: 100%; padding: 15px; border-radius: 12px;">
-                                        <option value="'Playfair Display', serif" ${this.menuConfig.theme.fontFamily.includes('Playfair') ? 'selected' : ''}>Elegante (Playfair Display)</option>
-                                        <option value="'Outfit', sans-serif" ${this.menuConfig.theme.fontFamily.includes('Outfit') ? 'selected' : ''}>Moderno (Outfit)</option>
-                                        <option value="'Georgia', serif" ${this.menuConfig.theme.fontFamily.includes('Georgia') ? 'selected' : ''}>Clásico (Georgia)</option>
-                                    </select>
-                                </div>
-                                <div class="input-group">
-                                    <label>Estilo Visual</label>
-                                    <select onchange="menuView.updateTheme('layout', this.value)" class="premium-input" style="width: 100%; padding: 15px; border-radius: 12px;">
-                                        <option value="modern" ${this.menuConfig.theme.layout === 'modern' ? 'selected' : ''}>Moderno (Cuadrícula)</option>
-                                        <option value="classic" ${this.menuConfig.theme.layout === 'classic' ? 'selected' : ''}>Clásico (Lista)</option>
-                                        <option value="minimal" ${this.menuConfig.theme.layout === 'minimal' ? 'selected' : ''}>Minimalista</option>
-                                    </select>
-                                </div>
-                            </div>
 
-                            <div style="margin-top: 30px; display: flex; gap: 40px; background: #f8fafc; padding: 25px; border-radius: 20px; border: 1px dashed #e2e8f0;">
-                                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 600;">
-                                    <input type="checkbox" ${this.menuConfig.showDescriptions ? 'checked' : ''} onchange="menuView.updateConfig('showDescriptions', this.checked)" style="width: 20px; height: 20px; accent-color: var(--primary);"> Mostrar Descripciones
-                                </label>
-                                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 600;">
-                                    <input type="checkbox" ${this.menuConfig.showImages ? 'checked' : ''} onchange="menuView.updateConfig('showImages', this.checked)" style="width: 20px; height: 20px; accent-color: var(--primary);"> Mostrar Imágenes
-                                </label>
+                                <!-- Col 2: Layout & Elements -->
+                                <div style="display: flex; flex-direction: column; gap: 20px;">
+                                    <h3 style="font-size: 1rem; color: var(--primary); border-bottom: 1.5px solid #f1f5f9; padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                                        <i data-lucide="layout" style="width: 18px;"></i> Estructura y Estilo
+                                    </h3>
+                                    <div class="input-group">
+                                        <label>Disposición de Productos</label>
+                                        <select onchange="menuView.updateTheme('layout', this.value)" class="premium-input" style="width: 100%;">
+                                            <option value="modern" ${this.menuConfig.theme.layout === 'modern' ? 'selected' : ''}>Cuadrícula Moderna (Cards)</option>
+                                            <option value="classic" ${this.menuConfig.theme.layout === 'classic' ? 'selected' : ''}>Clásico (Lista con Puntos)</option>
+                                            <option value="minimal" ${this.menuConfig.theme.layout === 'minimal' ? 'selected' : ''}>Minimalista (Sin bordes)</option>
+                                        </select>
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                        <div class="input-group">
+                                            <label>Estilo de Tarjetas</label>
+                                            <select onchange="menuView.updateTheme('cardStyle', this.value)" class="premium-input" style="width: 100%;">
+                                                <option value="elevated" ${this.menuConfig.theme.cardStyle === 'elevated' ? 'selected' : ''}>Elevado (Sombra)</option>
+                                                <option value="bordered" ${this.menuConfig.theme.cardStyle === 'bordered' ? 'selected' : ''}>Bordeado</option>
+                                                <option value="flat" ${this.menuConfig.theme.cardStyle === 'flat' ? 'selected' : ''}>Plano</option>
+                                            </select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Redondeo (px)</label>
+                                            <input type="number" value="${this.menuConfig.theme.cardRadius || 20}" min="0" max="50" onchange="menuView.updateTheme('cardRadius', parseInt(this.value))" class="premium-input" style="width: 100%;">
+                                        </div>
+                                    </div>
+                                    <div class="input-group">
+                                        <label>Encabezados de Categoría</label>
+                                        <select onchange="menuView.updateTheme('categoryHeaderStyle', this.value)" class="premium-input" style="width: 100%;">
+                                            <option value="pill" ${this.menuConfig.theme.categoryHeaderStyle === 'pill' ? 'selected' : ''}>Pastilla (Pill)</option>
+                                            <option value="underline" ${this.menuConfig.theme.categoryHeaderStyle === 'underline' ? 'selected' : ''}>Subrayado</option>
+                                            <option value="simple" ${this.menuConfig.theme.categoryHeaderStyle === 'simple' ? 'selected' : ''}>Simple</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Full Width Sections -->
+                                <div style="grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1.5fr; gap: 30px; background: #fdfaf6; padding: 25px; border-radius: 20px; border: 1px solid rgba(226, 150, 93, 0.1);">
+                                    <div style="display: flex; flex-direction: column; gap: 15px;">
+                                        <h4 style="font-size: 0.9rem; color: var(--primary); margin: 0;">Cabecera y Logo</h4>
+                                        <div style="display: flex; gap: 20px; align-items: center;">
+                                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                                <input type="checkbox" ${this.menuConfig.theme.showLogo ? 'checked' : ''} onchange="menuView.updateTheme('showLogo', this.checked)" style="width: 18px; height: 18px; accent-color: var(--primary);"> Logo
+                                            </label>
+                                            <div class="input-group" style="margin: 0; flex: 1;">
+                                                <select onchange="menuView.updateTheme('headerAlignment', this.value)" class="premium-input" style="width: 100%; border-radius: 10px; padding: 10px;">
+                                                    <option value="left" ${this.menuConfig.theme.headerAlignment === 'left' ? 'selected' : ''}>Alineación Izquierda</option>
+                                                    <option value="center" ${this.menuConfig.theme.headerAlignment === 'center' ? 'selected' : ''}>Centrado</option>
+                                                    <option value="right" ${this.menuConfig.theme.headerAlignment === 'right' ? 'selected' : ''}>Derecha</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 15px;">
+                                            <label style="font-size: 0.8rem; white-space: nowrap;">Tamaño Logo</label>
+                                            <input type="range" min="40" max="150" value="${this.menuConfig.theme.logoSize || 80}" oninput="menuView.updateTheme('logoSize', parseInt(this.value))" style="flex: 1; accent-color: var(--primary);">
+                                        </div>
+                                    </div>
+
+                                    <div style="display: flex; flex-direction: column; gap: 15px;">
+                                        <h4 style="font-size: 0.9rem; color: var(--primary); margin: 0;">Visibilidad y Pie</h4>
+                                        <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+                                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                                <input type="checkbox" ${this.menuConfig.showDescriptions ? 'checked' : ''} onchange="menuView.updateConfig('showDescriptions', this.checked)" style="width: 18px; height: 18px; accent-color: var(--primary);"> Descripciones
+                                            </label>
+                                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                                <input type="checkbox" ${this.menuConfig.showImages ? 'checked' : ''} onchange="menuView.updateConfig('showImages', this.checked)" style="width: 18px; height: 18px; accent-color: var(--primary);"> Imágenes
+                                            </label>
+                                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                                <input type="checkbox" ${this.menuConfig.theme.showPriceBold ? 'checked' : ''} onchange="menuView.updateTheme('showPriceBold', this.checked)" style="width: 18px; height: 18px; accent-color: var(--primary);"> Precios en Negrita
+                                            </label>
+                                        </div>
+                                        <div class="input-group" style="margin: 0;">
+                                            <input type="text" placeholder="Mensaje al final del menú..." value="${this.menuConfig.theme.footerMessage || ''}" oninput="menuView.updateTheme('footerMessage', this.value)" class="premium-input" style="width: 100%; border-radius: 10px; padding: 12px; font-size: 0.9rem;">
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -599,24 +690,48 @@ const menuView = {
             background: ${theme.backgroundColor};
         `;
 
+        const headerStyles = {
+            center: 'text-align: center;',
+            left: 'text-align: left; display: flex; align-items: center; gap: 20px;',
+            right: 'text-align: right; display: flex; flex-direction: row-reverse; align-items: center; gap: 20px;'
+        };
+
+        const textureStyles = {
+            none: '',
+            paper: 'background-image: url("https://www.transparenttextures.com/patterns/handmade-paper.png");',
+            linen: 'background-image: url("https://www.transparenttextures.com/patterns/linen-design.png");',
+            dots: 'background-image: url("https://www.transparenttextures.com/patterns/cubes.png"); opacity: 0.9;'
+        };
+
         return `
-            <div id="printableMenu" style="${styles}">
-                <div style="text-align: center; margin-bottom: 40px;">
-                    <img src="${biz.logo}" style="width: 60px; margin-bottom: 10px;">
-                    <h1 style="font-size: 2.5rem; margin: 0; color: ${headerColor};">${biz.nombre}</h1>
-                    <p style="text-transform: uppercase; letter-spacing: 3px; font-size: 0.7rem; font-weight: 700; opacity: 0.6;">${biz.eslogan}</p>
+            <div id="printableMenu" style="${styles} ${textureStyles[theme.backgroundTexture || 'none']}">
+                <div style="margin-bottom: 50px; ${headerStyles[theme.headerAlignment || 'center']}">
+                    ${theme.showLogo ? `<img src="${biz.logo}" style="width: ${theme.logoSize || 60}px; height: auto; object-fit: contain;">` : ''}
+                    <div style="${theme.headerAlignment === 'center' ? 'margin-top: 15px;' : ''}">
+                        <h1 style="font-size: 2.8rem; margin: 0; color: ${headerColor}; line-height: 1.1;">${biz.nombre}</h1>
+                        <p style="text-transform: uppercase; letter-spacing: 4px; font-size: 0.75rem; font-weight: 700; color: ${accentColor}; margin-top: 5px;">${biz.eslogan}</p>
+                    </div>
                 </div>
 
                 ${this.getSortedCategories().map(cat => {
             const group = groups[cat.nombre];
             if (!group || group.length === 0) return '';
+            
+            const catHeaderStyle = theme.categoryHeaderStyle === 'pill' 
+                ? `background: ${headerColor}; color: white; padding: 10px 25px; border-radius: 50px; display: inline-flex;`
+                : theme.categoryHeaderStyle === 'underline'
+                ? `border-bottom: 3px solid ${accentColor}; padding-bottom: 5px; width: 100%;`
+                : '';
+
             return `
-                        <div style="margin-bottom: 35px;">
-                            <h2 style="font-size: 1.5rem; color: ${headerColor}; border-bottom: 1.5px solid #eee; padding-bottom: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
-                                <i data-lucide="${cat.icono || 'coffee'}" style="width: 20px; color: ${accentColor}"></i>
-                                ${cat.nombre}
-                            </h2>
-                            <div style="display: grid; grid-template-columns: ${theme.layout === 'modern' ? 'repeat(auto-fill, minmax(200px, 1fr))' : '1fr'}; gap: ${theme.layout === 'modern' ? '20px' : '15px'};">
+                        <div style="margin-bottom: 45px;">
+                            <div style="margin-bottom: 25px;">
+                                <h2 style="font-size: 1.5rem; margin: 0; display: flex; align-items: center; gap: 12px; ${catHeaderStyle}">
+                                    <i data-lucide="${cat.icono || 'coffee'}" style="width: 22px; ${theme.categoryHeaderStyle === 'pill' ? 'color:white' : `color:${accentColor}`}"></i>
+                                    ${cat.nombre}
+                                </h2>
+                            </div>
+                            <div style="display: grid; grid-template-columns: ${theme.layout === 'modern' ? 'repeat(auto-fill, minmax(240px, 1fr))' : '1fr'}; gap: ${theme.layout === 'modern' ? '25px' : '20px'};">
                                 ${group.map(p => {
                 const isFeatured = conf.featuredProducts.includes(p.id);
                 if (theme.layout === 'classic' || theme.layout === 'minimal') {
@@ -634,22 +749,36 @@ const menuView = {
                                         `;
                 } else {
                     return `
-                                            <div style="background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.03); ${isFeatured ? `border: 2px solid ${accentColor}40;` : ''}">
-                                                ${conf.showImages ? `<img src="${p.imagen}" style="width: 100%; height: 120px; object-fit: cover;">` : ''}
-                                                <div style="padding: 12px;">
-                                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                                        <span style="font-weight: 700; font-size: 0.9rem;">${p.nombre}</span>
-                                                        <span style="font-weight: 800; color: ${accentColor}; font-size: 0.9rem;">$${p.precio.toFixed(2)}</span>
-                                                    </div>
-                                                </div>
+                                    <div style="background: white; border-radius: ${theme.cardRadius || 15}px; overflow: hidden; 
+                                        ${theme.cardStyle === 'elevated' ? 'box-shadow: 0 10px 25px rgba(0,0,0,0.06);' : theme.cardStyle === 'bordered' ? `border: 2px solid ${accentColor}15;` : ''} 
+                                        ${isFeatured ? `border: 2px solid ${accentColor}; transform: scale(1.02); z-index: 1;` : ''}">
+                                        ${conf.showImages ? `<img src="${p.imagen}" style="width: 100%; height: 130px; object-fit: cover;">` : ''}
+                                        <div style="padding: 15px;">
+                                            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                                                <span style="font-weight: 700; font-size: 0.95rem; color: ${theme.textColor};">${p.nombre} ${isFeatured ? '★' : ''}</span>
+                                                <span style="font-weight: ${theme.showPriceBold ? '900' : '500'}; color: ${headerColor}; font-size: 1rem;">$${p.precio.toFixed(2)}</span>
                                             </div>
-                                        `;
+                                            ${conf.showDescriptions ? `<p style="font-size: 0.75rem; opacity: 0.6; margin: 6px 0 0 0; line-height: 1.4;">${p.descripcion || 'Especialidad de la casa preparada con ingredientes frescos.'}</p>` : ''}
+                                        </div>
+                                    </div>
+                                `;
                 }
             }).join('')}
                             </div>
                         </div>
                     `;
         }).join('')}
+                
+                ${theme.footerMessage ? `
+                    <div style="text-align: center; margin-top: 50px; padding: 30px 0; border-top: 1px solid rgba(0,0,0,0.05);">
+                        <p style="font-size: 1rem; font-style: italic; opacity: 0.7; color: ${headerColor};">"${theme.footerMessage}"</p>
+                        <div style="display: flex; justify-content: center; gap: 15px; margin-top: 15px; opacity: 0.3;">
+                            <div style="width: 5px; height: 5px; border-radius: 50%; background: ${accentColor};"></div>
+                            <div style="width: 5px; height: 5px; border-radius: 50%; background: ${accentColor};"></div>
+                            <div style="width: 5px; height: 5px; border-radius: 50%; background: ${accentColor};"></div>
+                        </div>
+                    </div>
+                ` : ''}
             </div>
         `;
     },

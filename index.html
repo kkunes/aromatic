@@ -181,10 +181,16 @@
                                         pts</span>
                                 </div>
                             </div>
-                            <button class="btn-icon-small" id="removeCustomerBtn"
-                                style="width: 20px; height: 20px; padding: 0;" title="Quitar cliente">
-                                <i data-lucide="x" style="width: 12px; height: 12px;"></i>
-                            </button>
+                            <div style="display: flex; gap: 6px;">
+                                <button class="btn-icon-small" onclick="app.showCustomerFavoritesModal()" title="Especialidades del Cliente"
+                                    style="width: 24px; height: 24px; background: rgba(226, 150, 93, 0.1); color: var(--accent); border: 1px solid rgba(226, 150, 93, 0.2); border-radius: 6px;">
+                                    <i data-lucide="star" style="width: 12px; height: 12px; fill: var(--accent);"></i>
+                                </button>
+                                <button class="btn-icon-small" id="removeCustomerBtn"
+                                    style="width: 24px; height: 24px; padding: 0; border-radius: 6px;" title="Quitar cliente">
+                                    <i data-lucide="x" style="width: 12px; height: 12px;"></i>
+                                </button>
+                            </div>
                         </div>
                         <button class="btn-secondary" id="selectCustomerBtn"
                             style="width: 100%; padding: 6px; font-size: 0.75rem; border-style: dashed; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 6px;">

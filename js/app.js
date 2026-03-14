@@ -1697,6 +1697,23 @@ class AromaticApp {
                         </div>
                     </div>
 
+                    <div class="input-group" style="margin-bottom: 20px;">
+                        <label style="font-weight: 700; font-size: 0.8rem; color: var(--primary); margin-bottom: 6px; display: block;">Instrucciones de Preparación (Opcional)</label>
+                        <textarea id="customItemNotes" placeholder="Ej: Preparar con hielo frappeado, decorar con menta..." style="width: 100%; border-radius: 12px; border: 1px solid #e2e8f0; padding: 12px; font-family: inherit; font-size: 0.9rem; min-height: 80px; resize: none;"></textarea>
+                    </div>
+
+                    ${this.tickets[this.activeTicketIdx].cliente ? `
+                    <div style="background: #fdfaf6; border-radius: 16px; padding: 15px; border: 1.5px solid rgba(226, 150, 93, 0.2); margin-bottom: 25px;">
+                        <label style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
+                            <input type="checkbox" id="saveCustomAsFavorite" style="width: 20px; height: 20px; accent-color: var(--accent);">
+                            <div>
+                                <span style="display: block; font-weight: 700; font-size: 0.85rem; color: var(--primary);">Guardar en Favoritos del Cliente</span>
+                                <span style="display: block; font-size: 0.75rem; color: var(--text-muted);">Estará disponible cada vez que este cliente regrese</span>
+                            </div>
+                        </label>
+                    </div>
+                    ` : ''}
+
                     <div style="display: flex; gap: 12px;">
                         <button class="btn-secondary" id="cancelCustomItem" style="flex: 1; padding: 14px; border-radius: 14px; font-weight: 700;">CANCELAR</button>
                         <button class="btn-primary" id="addCustomItemToCart" style="flex: 1.5; padding: 14px; border-radius: 14px; font-weight: 700; background: var(--accent); border-color: var(--accent);">AÑADIR A ORDEN</button>
@@ -1862,6 +1879,9 @@ class AromaticApp {
         document.getElementById('addCustomItemToCart').onclick = async () => {
             const nombre = document.getElementById('customItemName').value.trim() || 'Producto Personalizado';
             const precio = parseFloat(priceInput.value) || 0;
+            const notas = document.getElementById('customItemNotes').value.trim();
+            const saveFavorite = document.getElementById('saveCustomAsFavorite')?.checked || false;
+            const currentTicket = this.tickets[this.activeTicketIdx];
 
             if (selectedInsumos.length === 0) {
                 return app.showToast("Debe agregar al menos un insumo", "warning");
@@ -1875,18 +1895,137 @@ class AromaticApp {
                 imagen: 'https://cdn-icons-png.flaticon.com/512/924/924412.png',
                 insumos: selectedInsumos.map(si => ({
                     idInsumo: si.idInsumo,
-                    cantidad: si.cantidad
-                }))
+                    cantidad: si.cantidad,
+                    nombre: si.nombre // Store for easier display in favorites
+                })),
+                nota: notas
             };
+
+            if (saveFavorite && currentTicket.cliente) {
+                app.showToast("Guardando en la biblioteca del cliente...", "info");
+                try {
+                    await db.addDocument('personalizados', {
+                        clienteId: currentTicket.cliente.id,
+                        nombre: nombre,
+                        precio: precio,
+                        insumos: customProduct.insumos,
+                        notas: notas
+                    });
+                    app.showToast("¡Favorito guardado correctamente!", "success");
+                } catch (err) {
+                    console.error("Error saving favorite:", err);
+                    app.showToast("No se pudo guardar el favorito", "error");
+                }
+            }
 
             const canAdd = await this.validateStock({ ...customProduct, quantity: 1, extras: [], omitted: [] });
             if (!canAdd) return;
 
-            this.cart.push({ ...customProduct, quantity: 1, extras: [], omitted: [], nota: '' });
+            this.cart.push({ ...customProduct, quantity: 1, extras: [], omitted: [], nota: notas });
             this.updateCartUI();
             modal.classList.add('hidden');
             audioService.playClick();
         };
+    }
+
+    async showCustomerFavoritesModal() {
+        const ticket = this.tickets[this.activeTicketIdx];
+        if (!ticket.cliente) return;
+
+        const modal = document.getElementById('modalContainer');
+        const modalContent = modal.querySelector('.modal-content');
+        const favorites = await db.getCollection('personalizados');
+        const customerFavs = favorites.filter(f => f.clienteId === ticket.cliente.id);
+
+        modalContent.innerHTML = `
+            <div style="width: 500px; padding: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                    <div>
+                        <h2 style="font-family: 'Playfair Display', serif; font-size: 1.8rem; color: var(--primary); margin: 0;">Especialidades de ${ticket.cliente.nombre.split(' ')[0]}</h2>
+                        <p style="color: var(--text-muted); font-size: 0.9rem;">Productos personalizados guardados previamente</p>
+                    </div>
+                    <button class="btn-icon" onclick="app.closeModal()">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+
+                <div style="max-height: 450px; overflow-y: auto; padding-right: 5px;" class="hide-scrollbar">
+                    ${customerFavs.length === 0 ? `
+                        <div style="text-align: center; padding: 40px; background: #f8fafc; border: 2px dashed #e2e8f0; border-radius: 20px;">
+                            <i data-lucide="star-off" style="width: 40px; height: 40px; color: #cbd5e1; margin-bottom: 15px;"></i>
+                            <p style="color: #64748b;">Este cliente no tiene especialidades guardadas todavía.</p>
+                        </div>
+                    ` : customerFavs.map(fav => `
+                        <div class="favorite-item-card" onclick="app.addFavoriteToCart('${fav.id}')" style="background: white; border: 1.5px solid #f1f5f9; border-radius: 18px; padding: 18px; margin-bottom: 12px; cursor: pointer; transition: all 0.3s ease; position: relative; overflow: hidden;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <h4 style="margin: 0; font-size: 1.1rem; color: var(--primary); font-weight: 700;">${fav.nombre}</h4>
+                                <span style="font-weight: 800; color: #15803d; font-size: 1.1rem;">$${fav.precio.toFixed(2)}</span>
+                            </div>
+                            
+                            <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px;">
+                                ${fav.insumos.map(ins => `
+                                    <span style="font-size: 0.7rem; background: #f8fafc; padding: 3px 8px; border-radius: 6px; border: 1px solid #e2e8f0; color: #64748b;">
+                                        ${ins.cantidad} ${ins.nombre}
+                                    </span>
+                                `).join('')}
+                            </div>
+                            
+                            ${fav.notas ? `
+                                <div style="font-size: 0.8rem; color: #94a3b8; font-style: italic; background: rgba(0,0,0,0.02); padding: 8px 12px; border-radius: 10px; border-left: 3px solid var(--accent);">
+                                    "${fav.notas}"
+                                </div>
+                            ` : ''}
+
+                            <div class="add-indicator" style="position: absolute; right: 20px; bottom: 20px; opacity: 0; transform: scale(0.8); transition: all 0.3s; background: var(--accent); color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                <i data-lucide="plus" style="width: 18px;"></i>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <style>
+                    .favorite-item-card:hover {
+                        border-color: var(--accent);
+                        transform: translateY(-2px);
+                        box-shadow: 0 10px 20px rgba(226, 150, 93, 0.1);
+                    }
+                    .favorite-item-card:hover .add-indicator {
+                        opacity: 1;
+                        transform: scale(1);
+                    }
+                </style>
+            </div>
+        `;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        modal.classList.remove('hidden');
+    }
+
+    async addFavoriteToCart(favoriteId) {
+        const favorites = await db.getCollection('personalizados');
+        const fav = favorites.find(f => f.id === favoriteId);
+        if (!fav) return;
+
+        const customProduct = {
+            id: 'custom_' + Date.now(),
+            nombre: fav.nombre,
+            precio: fav.precio,
+            categoria: 'Personalizado',
+            imagen: 'https://cdn-icons-png.flaticon.com/512/924/924412.png',
+            insumos: fav.insumos.map(si => ({
+                idInsumo: si.idInsumo,
+                cantidad: si.cantidad
+            })),
+            nota: fav.notas
+        };
+
+        const canAdd = await this.validateStock({ ...customProduct, quantity: 1, extras: [], omitted: [] });
+        if (!canAdd) return;
+
+        this.cart.push({ ...customProduct, quantity: 1, extras: [], omitted: [], nota: fav.notas || '' });
+        this.updateCartUI();
+        this.closeModal();
+        this.showToast(`Especialidad "${fav.nombre}" añadida`, "success");
+        audioService.playClick();
     }
 
     async updateSummary(subtotal) {

@@ -108,7 +108,7 @@ const db = {
 
 
     async exportAllData() {
-        const collections = ['productos', 'insumos', 'categorias', 'ventas', 'clientes', 'mesas', 'mermas', 'usuarios', 'audit_logs'];
+        const collections = ['productos', 'insumos', 'categorias', 'ventas', 'clientes', 'mesas', 'mermas', 'usuarios', 'audit_logs', 'personalizados'];
         const data = {};
         for (const col of collections) {
             data[col] = await this.getCollection(col);
