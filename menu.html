@@ -661,8 +661,8 @@
 
             async function loadMenuData(db) {
                 try {
-                    // Task 2: Optimized Single Document Fetch (Spark Plan Optimization)
-                    const docSnap = await db.collection('public_metadata').doc('current_menu').get();
+                    // Task 2: Optimized Single Document Fetch (configuracion/menu_digital)
+                    const docSnap = await db.collection('configuracion').doc('menu_digital').get();
 
                     if (!docSnap.exists) {
                         renderError("El menú digital no está listo. Sincroniza desde el Inventario.");
@@ -670,7 +670,6 @@
                     }
 
                     const data = docSnap.data();
-                    // data contains: config, productos, categorias, settings
                     renderMenu(data.config, data.productos, data.categorias, data.settings);
 
                 } catch (err) {
@@ -782,7 +781,7 @@
                             <div class="card" style="animation-delay: ${i * 0.1}s">
                                 ${config.showImages ? `
                                     <div class="card-img-container">
-                                        <img src="${p.imagen}" class="card-img" onerror="this.src='https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=500'">
+                                        <img src="${p.imagen_url}" class="card-img" onerror="this.src='https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=500'">
                                     </div>
                                 ` : ''}
                                 <div class="card-body">

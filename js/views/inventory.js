@@ -679,21 +679,27 @@ const inventoryView = {
             const config = menuConfigs[0] || menuView.menuConfig;
             const appSettings = settings[0] || db.getSettings();
 
-            const publicMenuData = {
-                config,
-                productos: productos.map(p => ({
+            // Task 2: Optimized Single Document Fetch (configuracion/menu_digital)
+            // Filter only active products (or all if status field is missing, assuming they are active)
+            const activeProducts = productos.filter(p => !p.status || p.status === 'activo');
+
+            const menuDigitalData = {
+                // Single Array inside the document as requested
+                productos: activeProducts.map(p => ({
                     id: p.id,
                     nombre: p.nombre,
                     precio: p.precio,
                     descripcion: p.descripcion || '',
-                    imagen: p.imagen || '',
+                    imagen_url: p.imagen || '', // Mapping imagen to imagen_url as implied
                     categoria: p.categoria
                 })),
+                // Supporting data (needed by menu.html to maintain design)
                 categorias: categorias.map(c => ({
                     id: c.id,
                     nombre: c.nombre,
                     icono: c.icono || 'package'
                 })),
+                config: config,
                 settings: {
                     negocio: appSettings.negocio || {
                         nombre: 'Aromatic POS',
@@ -704,9 +710,9 @@ const inventoryView = {
                 lastUpdated: new Date().toISOString()
             };
 
-            // Save to the optimized collection/document
-            await db.setDocument('public_metadata', 'current_menu', publicMenuData);
-            console.log("✅ Menú Público sincronizado satisfactoriamente.");
+            // Save to the requested path: configuracion/menu_digital
+            await db.setDocument('configuracion', 'menu_digital', menuDigitalData);
+            console.log("✅ Menú Público sincronizado en configuracion/menu_digital.");
         } catch (error) {
             console.error("❌ Error sincronizando menú público:", error);
         }
