@@ -1,4 +1,43 @@
 const ticketView = {
+    /**
+     * Task 4: Image Optimization for Thermal Printers
+     * Converts any logo to a high-contrast Black & White bitmap
+     */
+    async getBWLogo(url) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                
+                // Draw image
+                ctx.drawImage(img, 0, 0);
+                
+                // Process pixels to B&W
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+                
+                for (let i = 0; i < data.length; i += 4) {
+                    // Average for grayscale
+                    const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                    // Thresholding at 128 (pure black or white)
+                    const bw = avg > 128 ? 255 : 0;
+                    data[i] = data[i + 1] = data[i + 2] = bw;
+                    // Keep alpha but make it opaque if it's not fully transparent
+                    data[i + 3] = data[i + 3] > 0 ? 255 : 0;
+                }
+                
+                ctx.putImageData(imageData, 0, 0);
+                resolve(canvas.toDataURL());
+            };
+            img.onerror = () => resolve(url); // Fallback to original
+            img.src = url;
+        });
+    },
+
     async generateHTML(venta, settings) {
         const config = settings.ticketConfig;
         const taxRate = settings.manejarIVA ? (settings.porcentajeIVA / 100) : 0;
@@ -8,10 +47,17 @@ const ticketView = {
         // Obtener insumos para poder mostrar nombres de ingredientes omitidos
         const allInsumos = await db.getCollection('insumos');
 
+        // Task 4: Optimized Logo
+        let logoMarkup = '';
+        if (config.mostrarLogo && settings.negocio.logo) {
+            const bwLogo = await this.getBWLogo(settings.negocio.logo);
+            logoMarkup = `<img src="${bwLogo}" style="width: 60px; height: 60px; object-fit: contain; margin-bottom: 5px; display: block; margin: 0 auto;">`;
+        }
+
         return `
             <div class="ticket-container" style="font-size: ${config.tamanoFuente}px; width: ${config.anchoPapel === 80 ? '80mm' : '100%'}; color: #000 !important; font-family: 'Courier New', Courier, monospace;">
                 <div class="ticket-header" style="text-align: center; margin-bottom: 10px; color: #000;">
-                    ${config.mostrarLogo && settings.negocio.logo ? `<img src="${settings.negocio.logo}" style="width: 50px; height: 50px; object-fit: contain; margin-bottom: 5px; filter: grayscale(100%) contrast(200%);">` : ''}
+                    ${logoMarkup}
                     <h2 style="font-size: 1.25em; margin-bottom: 2px; color: #000;">${settings.negocio.nombre}</h2>
                     ${config.mostrarEslogan ? `<p style="font-size: 0.9em; margin: 0; color: #000;">${settings.negocio.eslogan}</p>` : ''}
                     ${config.mostrarDireccion ? `<p style="font-size: 0.85em; margin: 2px 0; color: #000;">${settings.negocio.direccion}</p>` : ''}

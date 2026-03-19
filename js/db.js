@@ -60,6 +60,58 @@ const db = {
         }
     },
 
+    /**
+     * Optimized method to fetch filtered data from server
+     * Task 1: Server-side filtering
+     */
+    async getVentasPorFecha(dateString) {
+        // Range for a specific day: from 00:00:00 to 23:59:59
+        const start = `${dateString}T00:00:00.000Z`;
+        const end = `${dateString}T23:59:59.999Z`;
+        
+        const settings = this.getSettings();
+        if (settings.databaseConfig?.modoLocal || !this.firestore) {
+            const all = await this.getLocalCollection('ventas');
+            return all.filter(v => v.fecha >= start && v.fecha <= end);
+        }
+
+        try {
+            const snapshot = await this.firestore.collection('ventas')
+                .where('fecha', '>=', start)
+                .where('fecha', '<=', end)
+                .orderBy('fecha', 'desc')
+                .get();
+            return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+        } catch (e) {
+            console.error("Error fetching filtered sales:", e);
+            return this.getCollection('ventas'); // Fallback
+        }
+    },
+
+    async getVentasRango(dateStart, dateEnd) {
+        const start = `${dateStart}T00:00:00.000Z`;
+        const end = `${dateEnd}T23:59:59.999Z`;
+
+        const settings = this.getSettings();
+        if (settings.databaseConfig?.modoLocal || !this.firestore) {
+            const all = await this.getLocalCollection('ventas');
+            return all.filter(v => v.fecha >= start && v.fecha <= end);
+        }
+
+        try {
+            const snapshot = await this.firestore.collection('ventas')
+                .where('fecha', '>=', start)
+                .where('fecha', '<=', end)
+                .orderBy('fecha', 'desc')
+                .get();
+            return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+        } catch (e) {
+            console.error("Error fetching analytics sales:", e);
+            // If fail due to missing index, we might need to notify user or fallback
+            return this.getCollection('ventas'); 
+        }
+    },
+
     async setCollection(name, data) {
         const settings = this.getSettings();
         if (settings.databaseConfig?.modoLocal || !this.firestore) {

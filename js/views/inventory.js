@@ -343,6 +343,7 @@ const inventoryView = {
 
             this.showCategoriesModal(); // Refresh modal
             this.app.renderView('inventory'); // Refresh background view
+            this.syncPublicMenu(); // Keep digital menu in sync
         };
 
         if (document.getElementById('addCatBtnSave')) {
@@ -366,6 +367,7 @@ const inventoryView = {
         if (confirm('¿Deseas eliminar esta categoría?')) {
             await db.deleteDocument('categorias', id);
             this.showCategoriesModal();
+            this.syncPublicMenu(); // Keep digital menu in sync
         }
     },
 
@@ -617,6 +619,7 @@ const inventoryView = {
 
             modal.classList.add('hidden');
             this.app.renderView('inventory');
+            this.syncPublicMenu(); // Keep digital menu in sync
         };
     },
 
@@ -636,6 +639,7 @@ const inventoryView = {
             await db.deleteDocument('productos', id);
             await db.logAction('inventario', 'eliminar_producto', `Producto: "${prod?.nombre}"`);
             this.app.renderView('inventory');
+            this.syncPublicMenu(); // Keep digital menu in sync
         }
     },
 
@@ -656,5 +660,55 @@ const inventoryView = {
             app.showToast(cloudUrl ? 'Imagen alojada en la nube' : 'Imagen comprimida localmente');
         };
         reader.readAsDataURL(file);
+    },
+
+    /**
+     * Task 2: Create a summary document for the digital menu
+     * Combines products, categories, config and settings into a single read
+     */
+    async syncPublicMenu() {
+        console.log("🔄 Sincronizando Menú Público...");
+        try {
+            const [productos, categorias, menuConfigs, settings] = await Promise.all([
+                db.getCollection('productos'),
+                db.getCollection('categorias'),
+                db.getCollection('menu_config'),
+                db.getCollection('settings')
+            ]);
+
+            const config = menuConfigs[0] || menuView.menuConfig;
+            const appSettings = settings[0] || db.getSettings();
+
+            const publicMenuData = {
+                config,
+                productos: productos.map(p => ({
+                    id: p.id,
+                    nombre: p.nombre,
+                    precio: p.precio,
+                    descripcion: p.descripcion || '',
+                    imagen: p.imagen || '',
+                    categoria: p.categoria
+                })),
+                categorias: categorias.map(c => ({
+                    id: c.id,
+                    nombre: c.nombre,
+                    icono: c.icono || 'package'
+                })),
+                settings: {
+                    negocio: appSettings.negocio || {
+                        nombre: 'Aromatic POS',
+                        eslogan: 'Sabor con Alma & Corazón',
+                        logo: ''
+                    }
+                },
+                lastUpdated: new Date().toISOString()
+            };
+
+            // Save to the optimized collection/document
+            await db.setDocument('public_metadata', 'current_menu', publicMenuData);
+            console.log("✅ Menú Público sincronizado satisfactoriamente.");
+        } catch (error) {
+            console.error("❌ Error sincronizando menú público:", error);
+        }
     }
 };

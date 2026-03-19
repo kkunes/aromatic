@@ -661,42 +661,21 @@
 
             async function loadMenuData(db) {
                 try {
-                    // Fetch Data from Firestore
-                    // Use Promise.all for faster loading
-                    const [configSnap, productsSnap, categoriesSnap, settingsSnap] = await Promise.all([
-                        db.collection('menu_config').get(),
-                        db.collection('productos').get(),
-                        db.collection('categorias').get(),
-                        db.collection('settings').get()
-                    ]);
+                    // Task 2: Optimized Single Document Fetch (Spark Plan Optimization)
+                    const docSnap = await db.collection('public_metadata').doc('current_menu').get();
 
-                    if (configSnap.empty) {
-                        renderError("Menú no configurated. Por favor, guarda la configuración desde el panel de administración.");
+                    if (!docSnap.exists) {
+                        renderError("El menú digital no está listo. Sincroniza desde el Inventario.");
                         return;
                     }
 
-                    const config = configSnap.docs[0].data();
-                    const products = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    const categories = categoriesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    const settings = settingsSnap.empty ? { negocio: { nombre: 'Nuestra Carta', eslogan: 'Sabor con Alma & Corazón', logo: 'recursos/logo efimero.png' } } : settingsSnap.docs[0].data();
-
-                    renderMenu(config, products, categories, settings);
+                    const data = docSnap.data();
+                    // data contains: config, productos, categorias, settings
+                    renderMenu(data.config, data.productos, data.categorias, data.settings);
 
                 } catch (err) {
                     console.error("CRITICAL ERROR LOADING MENU:", err);
-                    // Fallback to localStorage if possible
-                    const localConfig = localStorage.getItem('aromatic_menu_config');
-                    const localSettings = JSON.parse(localStorage.getItem('aromatic_settings') || '{}');
-                    if (localConfig) {
-                        try {
-                            renderMenu(JSON.parse(localConfig), [], [], localSettings);
-                        } catch (renderErr) {
-                            console.error("FALLBACK RENDER FAILED:", renderErr);
-                            renderError("Hubo un problema al cargar el menú digital. Revisa tu conexión.");
-                        }
-                    } else {
-                        renderError("Hubo un problema al cargar el menú digital. Revisa tu conexión.");
-                    }
+                    loadLocalFallback();
                 }
             }
 

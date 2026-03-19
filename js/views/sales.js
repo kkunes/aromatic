@@ -5,11 +5,10 @@ const salesView = {
     viewMode: 'cards',
 
     async render() {
-        this.ventas = await db.getCollection('ventas');
+        // Task 1: Optimized Server-side Filtered Query
+        this.ventas = await db.getVentasPorFecha(this.selectedDate);
 
-        const dateVentas = this.ventas.filter(v =>
-            new Date(v.fecha).toLocaleDateString('en-CA') === this.selectedDate
-        );
+        const dateVentas = this.ventas; // Already filtered by server
 
         const filtered = dateVentas.filter(v => {
             if (!this.filterQuery) return true;

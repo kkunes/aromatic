@@ -12,7 +12,8 @@ const analyticsView = {
             this.dateEnd = today.toLocaleDateString('en-CA');
         }
 
-        this.ventas = await db.getCollection('ventas');
+        // Task 1: Server-side Filtering for date ranges
+        this.ventas = await db.getVentasRango(this.dateStart, this.dateEnd);
         const stats = this.calculateStats();
 
         return `
