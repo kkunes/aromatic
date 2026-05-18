@@ -24,6 +24,7 @@ const salesView = {
         const totalVentas = dateVentas.reduce((sum, v) => sum + v.total, 0);
         const totalEfectivo = dateVentas.filter(v => v.metodoPago === 'Efectivo').reduce((sum, v) => sum + v.total, 0);
         const totalTarjeta = dateVentas.filter(v => v.metodoPago === 'Tarjeta').reduce((sum, v) => sum + v.total, 0);
+        const totalTransferencia = dateVentas.filter(v => v.metodoPago === 'Transferencia').reduce((sum, v) => sum + v.total, 0);
         const ticketPromedio = dateVentas.length > 0 ? totalVentas / dateVentas.length : 0;
 
         return `
@@ -116,6 +117,18 @@ const salesView = {
                         </div>
                         <div style="font-family: 'Playfair Display', serif; font-size: 1.8rem; font-weight: 700; color: var(--primary); display: flex; align-items: baseline; gap: 4px;">
                             <span style="font-size: 1rem; opacity: 0.5;">$</span>${totalTarjeta.toFixed(2)}
+                        </div>
+                    </div>
+
+                    <div class="stat-card-premium" style="background: white; padding: 24px; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #f1f5f9;">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                            <div style="width: 44px; height: 44px; background: #fff7ed; border-radius: 14px; display: flex; align-items: center; justify-content: center;">
+                                <i data-lucide="smartphone" style="width: 24px; height: 24px; color: #f97316;"></i>
+                            </div>
+                            <span style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Transferencia</span>
+                        </div>
+                        <div style="font-family: 'Playfair Display', serif; font-size: 1.8rem; font-weight: 700; color: var(--primary); display: flex; align-items: baseline; gap: 4px;">
+                            <span style="font-size: 1rem; opacity: 0.5;">$</span>${totalTransferencia.toFixed(2)}
                         </div>
                     </div>
 
@@ -229,7 +242,7 @@ const salesView = {
 
                             <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 16px; border-top: 1px solid #f1f5f9;">
                                 <div style="display: flex; align-items: center; gap: 8px;">
-                                    <i data-lucide="${v.metodoPago === 'Efectivo' ? 'banknote' : 'credit-card'}" style="width: 18px; height: 18px; color: ${v.metodoPago === 'Efectivo' ? '#22c55e' : '#3b82f6'};"></i>
+                                    <i data-lucide="${v.metodoPago === 'Efectivo' ? 'banknote' : v.metodoPago === 'Transferencia' ? 'smartphone' : 'credit-card'}" style="width: 18px; height: 18px; color: ${v.metodoPago === 'Efectivo' ? '#22c55e' : v.metodoPago === 'Transferencia' ? '#f97316' : '#3b82f6'};"></i>
                                     <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">${v.metodoPago}</span>
                                 </div>
                                 <div style="color: var(--primary); font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;">
@@ -303,8 +316,8 @@ const salesView = {
                                             </div>
                                         </td>
                                         <td style="padding: 20px 24px; text-align: center;">
-                                            <div style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; ${v.metodoPago === 'Efectivo' ? 'background: #f0fdf4; color: #166534;' : 'background: #eff6ff; color: #1e40af;'}">
-                                                <i data-lucide="${v.metodoPago === 'Efectivo' ? 'banknote' : 'credit-card'}" style="width: 14px; height: 14px;"></i>
+                                            <div style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; ${v.metodoPago === 'Efectivo' ? 'background: #f0fdf4; color: #166534;' : v.metodoPago === 'Transferencia' ? 'background: #fff7ed; color: #c2410c;' : 'background: #eff6ff; color: #1e40af;'}">
+                                                <i data-lucide="${v.metodoPago === 'Efectivo' ? 'banknote' : v.metodoPago === 'Transferencia' ? 'smartphone' : 'credit-card'}" style="width: 14px; height: 14px;"></i>
                                                 ${v.metodoPago}
                                             </div>
                                         </td>

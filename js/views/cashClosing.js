@@ -6,34 +6,99 @@ const cashClosingView = {
         this.currentSession = sesiones.find(s => !s.fechaCierre);
 
         if (!this.currentSession) {
-            return this.renderOpeningForm();
+            return await this.renderOpeningForm();
         } else {
             return await this.renderActiveDashboard();
         }
     },
 
-    renderOpeningForm() {
-        return `
-            <div class="cash-closing-container fade-in" style="max-width: 500px; margin: 50px auto;">
-                <div class="card" style="text-align: center; padding: 40px;">
-                    <div style="width: 80px; height: 80px; background: #eff6ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
-                        <i data-lucide="key" style="width: 40px; height: 40px; color: var(--primary);"></i>
+    async renderOpeningForm() {
+        const sesiones = await db.getCollection('caja_sesiones');
+        const closed = sesiones.filter(s => s.fechaCierre).sort((a, b) => new Date(b.fechaCierre) - new Date(a.fechaCierre));
+        const lastSession = closed[0];
+        const user = db.getCurrentUser();
+
+        let lastSessionHTML = '';
+        if (lastSession) {
+            const lastDate = new Date(lastSession.fechaCierre).toLocaleDateString('es-MX', {
+                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+            lastSessionHTML = `
+                <div style="background: rgba(226, 150, 93, 0.04); border: 1px solid rgba(226, 150, 93, 0.15); border-radius: 16px; padding: 16px; margin-bottom: 25px; text-align: left;">
+                    <div style="display: flex; align-items: center; gap: 8px; color: var(--accent); font-weight: 700; font-size: 0.85rem; text-transform: uppercase; margin-bottom: 8px;">
+                        <i data-lucide="info" style="width: 16px; height: 16px;"></i> Último Cierre de Caja
                     </div>
-                    <h1 style="margin-bottom: 10px;">Apertura de Caja</h1>
-                    <p style="color: var(--text-muted); margin-bottom: 30px;">Inicie un nuevo turno registrando el fondo inicial de efectivo.</p>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 4px; color: var(--text-main);">
+                        <span>Fecha:</span>
+                        <strong style="font-weight: 600;">${lastDate}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 4px; color: var(--text-main);">
+                        <span>Efectivo Contado:</span>
+                        <strong style="font-weight: 700; color: var(--success);">$${(lastSession.montoFinalReal || 0).toFixed(2)}</strong>
+                    </div>
+                    ${lastSession.diferencia !== undefined && lastSession.diferencia !== 0 ? `
+                        <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-main);">
+                            <span>Diferencia:</span>
+                            <span style="font-weight: 700; color: ${lastSession.diferencia >= 0 ? 'var(--success)' : 'var(--danger)'};">
+                                ${lastSession.diferencia > 0 ? '+' : ''}${(lastSession.diferencia || 0).toFixed(2)}
+                            </span>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        } else {
+            lastSessionHTML = `
+                <div style="background: rgba(75, 54, 33, 0.03); border: 1px dashed rgba(75, 54, 33, 0.1); border-radius: 16px; padding: 16px; margin-bottom: 25px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+                    No se registran turnos anteriores cerrados en este dispositivo.
+                </div>
+            `;
+        }
+
+        return `
+            <div class="cash-closing-container fade-in" style="max-width: 520px; margin: 40px auto; padding: 0 20px;">
+                <div class="card" style="padding: 40px; border-radius: 24px; box-shadow: 0 10px 30px rgba(75, 54, 33, 0.08); border: 1px solid rgba(75, 54, 33, 0.05); position: relative; overflow: hidden; background: #fff;">
+                    <!-- Top accent line -->
+                    <div style="position: absolute; top: 0; left: 0; right: 0; height: 6px; background: linear-gradient(90deg, var(--primary), var(--accent));"></div>
+                    
+                    <div style="width: 70px; height: 70px; background: rgba(226, 150, 93, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; border: 1px solid rgba(226, 150, 93, 0.2);">
+                        <i data-lucide="coffee" style="width: 32px; height: 32px; color: var(--accent);"></i>
+                    </div>
+                    
+                    <h1 style="font-family: 'Playfair Display', serif; font-size: 2.2rem; color: var(--primary); margin-bottom: 6px; text-align: center; font-weight: 700;">Apertura de Caja</h1>
+                    <p style="color: var(--text-muted); margin-bottom: 25px; text-align: center; font-size: 0.95rem;">
+                        Bienvenido a <strong>Aromatic POS</strong>. Inicia tu turno registrando el fondo inicial en efectivo disponible en el cajón de dinero.
+                    </p>
+                    
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 25px; background: #fdf5e6; border: 1px solid rgba(226, 150, 93, 0.15); padding: 8px 16px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; color: var(--primary); width: fit-content; margin-left: auto; margin-right: auto;">
+                        <span style="width: 6px; height: 6px; background: var(--accent); border-radius: 50%;"></span>
+                        Cajero: ${user.nombre} (${user.rol.toUpperCase()})
+                    </div>
+                    
+                    ${lastSessionHTML}
                     
                     <div class="input-group" style="text-align: left; margin-bottom: 25px;">
-                        <label>Fondo Inicial ($)</label>
-                        <input type="number" id="montoInicial" placeholder="0.00" class="large-input" style="font-size: 1.5rem; text-align: center;">
+                        <label style="font-size: 0.85rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; display: block;">Monto de Fondo Inicial ($)</label>
+                        <div style="position: relative;">
+                            <span style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%); font-size: 1.8rem; font-weight: 700; color: var(--text-muted); opacity: 0.7;">$</span>
+                            <input type="number" id="montoInicial" placeholder="0.00" class="large-input" style="font-size: 2.2rem; text-align: center; padding-left: 45px; border-radius: 16px; border: 2px solid #e8e2dc; background: #faf8f5; transition: border-color 0.2s;" value="0">
+                        </div>
+                    </div>
+                    
+                    <!-- Presets buttons to click quickly -->
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 30px;">
+                        <button type="button" class="btn-secondary" onclick="document.getElementById('montoInicial').value = '0'" style="padding: 10px; border-radius: 10px; font-size: 0.85rem; border-color: #ddd; background: #fff; font-weight: 700; color: var(--text-muted);">Sin Fondo</button>
+                        <button type="button" class="btn-secondary" onclick="document.getElementById('montoInicial').value = '500'" style="padding: 10px; border-radius: 10px; font-size: 0.85rem; border-color: #ddd; background: #fff; font-weight: 700; color: var(--primary);">$500</button>
+                        <button type="button" class="btn-secondary" onclick="document.getElementById('montoInicial').value = '1000'" style="padding: 10px; border-radius: 10px; font-size: 0.85rem; border-color: #ddd; background: #fff; font-weight: 700; color: var(--primary);">$1,000</button>
+                        <button type="button" class="btn-secondary" onclick="document.getElementById('montoInicial').value = '2000'" style="padding: 10px; border-radius: 10px; font-size: 0.85rem; border-color: #ddd; background: #fff; font-weight: 700; color: var(--primary);">$2,000</button>
                     </div>
 
-                    <button class="btn-primary btn-large" id="btnAbrirCaja" style="width: 100%;">
-                        ABRIR TURNO
+                    <button class="btn-primary btn-large ripple" id="btnAbrirCaja" style="width: 100%; border-radius: 16px; font-weight: 700; font-size: 1.1rem; padding: 18px; box-shadow: 0 6px 20px rgba(75, 54, 33, 0.15); display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <i data-lucide="unlock" style="width: 20px; height: 20px;"></i> ABRIR CAJA Y COMENZAR
                     </button>
                     
-                    <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px;">
-                         <button class="btn-secondary" onclick="cashClosingView.showHistory()" style="width: 100%;">
-                            <i data-lucide="history"></i> Ver Cortes Anteriores
+                    <div style="margin-top: 25px; border-top: 1px solid #f1f0ee; padding-top: 20px; text-align: center;">
+                         <button class="btn-secondary" onclick="cashClosingView.showHistory()" style="width: 100%; border-radius: 12px; padding: 12px; border-color: rgba(75, 54, 33, 0.15); font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 8px; color: var(--text-muted);">
+                            <i data-lucide="history" style="width: 18px;"></i> Ver Cortes de Caja Anteriores
                         </button>
                     </div>
                 </div>
@@ -58,6 +123,10 @@ const cashClosingView = {
 
         const ventasTarjeta = sessionVentas
             .filter(v => v.metodoPago === 'Tarjeta')
+            .reduce((sum, v) => sum + v.total, 0);
+
+        const ventasTransferencia = sessionVentas
+            .filter(v => v.metodoPago === 'Transferencia')
             .reduce((sum, v) => sum + v.total, 0);
 
         const ingresos = sessionMovs
@@ -99,7 +168,7 @@ const cashClosingView = {
                     <div class="stat-card" style="background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
                         <span style="color: var(--text-muted); font-size: 0.9rem;">Ventas Efectivo</span>
                         <h2 style="font-size: 1.8rem; margin: 5px 0 0; color: var(--success);">+$${ventasEfectivo.toFixed(2)}</h2>
-                        <small style="color: var(--text-muted);">Tarjeta: $${ventasTarjeta.toFixed(2)}</small>
+                        <small style="color: var(--text-muted);">Tarjeta: $${ventasTarjeta.toFixed(2)} | Transf: $${ventasTransferencia.toFixed(2)}</small>
                     </div>
                     <div class="stat-card" style="background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
                         <span style="color: var(--text-muted); font-size: 0.9rem;">Entradas Extra</span>
@@ -188,7 +257,7 @@ const cashClosingView = {
         if (btnAbrir) {
             btnAbrir.onclick = async () => {
                 const monto = parseFloat(document.getElementById('montoInicial').value);
-                if (isNaN(monto)) return alert('Ingrese un monto válido');
+                if (isNaN(monto)) return app.showToast('Ingrese un monto inicial válido.', 'warning');
 
                 await db.addDocument('caja_sesiones', {
                     fechaApertura: new Date().toISOString(),
@@ -196,7 +265,9 @@ const cashClosingView = {
                     fechaCierre: null
                 });
 
-                app.renderView('cashClosing');
+                app.showToast('¡Caja abierta con éxito! Iniciando turno de ventas.', 'success');
+                if (typeof audioService !== 'undefined') audioService.playClick();
+                await app.switchView('pos');
             };
         }
     },
@@ -267,7 +338,7 @@ const cashClosingView = {
                 const saldoEnCaja = this.currentSession.montoInicial + ventasEfectivo + ingresos - retirosActuales;
 
                 if (monto > saldoEnCaja) {
-                    return alert(`No se puede retirar $${monto.toFixed(2)} porque solo hay $${saldoEnCaja.toFixed(2)} en efectivo en caja.`);
+                    return app.showToast(`Fondos insuficientes. Solo hay $${saldoEnCaja.toFixed(2)} en efectivo en caja.`, 'warning');
                 }
             }
 
@@ -280,7 +351,9 @@ const cashClosingView = {
             });
 
             modal.classList.add('hidden');
-            app.renderView('cashClosing');
+            app.showToast('Movimiento registrado correctamente', 'success');
+            if (typeof audioService !== 'undefined') audioService.playClick();
+            app.renderView('cash-closing');
         };
 
         modal.classList.remove('hidden');
@@ -356,8 +429,9 @@ const cashClosingView = {
             });
 
             modal.classList.add('hidden');
-            alert('Turno cerrado correctamente.');
-            app.renderView('cashClosing');
+            app.showToast('Turno cerrado correctamente.', 'success');
+            if (typeof audioService !== 'undefined') audioService.playClick();
+            await app.switchView('cash-closing');
         };
 
         modal.classList.remove('hidden');

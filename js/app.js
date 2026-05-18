@@ -32,8 +32,22 @@ class AromaticApp {
         this.initKioskSync();
         this.checkNotifications();
 
-        // IMPORTANT: Await the initial view to show products immediately
-        await this.renderView('pos');
+        // Check if cash register is open to determine initial view
+        const sesiones = await db.getCollection('caja_sesiones');
+        const activeSession = sesiones.find(s => !s.fechaCierre);
+        
+        if (!activeSession) {
+            this.currentView = 'cash-closing';
+            await this.renderView('cash-closing');
+            
+            // Highlight cash-closing in sidebar
+            document.querySelectorAll('.nav-links li').forEach(li => {
+                li.classList.toggle('active', li.getAttribute('data-view') === 'cash-closing');
+            });
+        } else {
+            this.currentView = 'pos';
+            await this.renderView('pos');
+        }
         this.updateTicketsUI();
 
         // 5. Start intervals
@@ -697,6 +711,11 @@ class AromaticApp {
                     const tarjetaBtn = document.getElementById('payTarjeta');
                     if (tarjetaBtn) tarjetaBtn.click();
                     break;
+                case 'F5':
+                    e.preventDefault();
+                    const transferenciaBtn = document.getElementById('payTransferencia');
+                    if (transferenciaBtn) transferenciaBtn.click();
+                    break;
                 case 'F4':
                     e.preventDefault();
                     const redeemBtn = document.getElementById('redeemPointsBtn');
@@ -829,7 +848,7 @@ class AromaticApp {
                                 <span style="font-size: 0.8rem; font-weight: 400; opacity: 0.5;">$</span>${v.total.toFixed(2)}
                             </div>
                         </div>
-                        <span class="badge ${v.metodoPago === 'Efectivo' ? 'success' : 'primary'}" style="font-size: 0.65rem; text-transform: uppercase;">
+                        <span class="badge ${v.metodoPago === 'Efectivo' ? 'success' : v.metodoPago === 'Transferencia' ? 'warning' : 'primary'}" style="font-size: 0.65rem; text-transform: uppercase;">
                             ${v.metodoPago}
                         </span>
                     </div>
@@ -871,7 +890,25 @@ class AromaticApp {
         if (clockEl) clockEl.textContent = timeStr;
     }
 
-    switchView(viewId) {
+    async switchView(viewId) {
+        // Enforce cash register open constraint on transactional views
+        if (['pos', 'tables'].includes(viewId)) {
+            const sesiones = await db.getCollection('caja_sesiones');
+            const activeSession = sesiones.find(s => !s.fechaCierre);
+            if (!activeSession) {
+                this.showToast('Debe abrir la caja para acceder al panel de ventas', 'warning');
+                if (typeof audioService !== 'undefined') audioService.playError();
+                
+                // Keep sidebar highlight on cash-closing
+                document.querySelectorAll('.nav-links li').forEach(li => {
+                    li.classList.toggle('active', li.getAttribute('data-view') === 'cash-closing');
+                });
+                
+                // Show cash-closing instead
+                viewId = 'cash-closing';
+            }
+        }
+
         // Map sub-views to their parent sidebar items
         const highlightMap = {
             'supplies': 'inventory',
@@ -945,7 +982,8 @@ class AromaticApp {
             case 'analytics': html = await analyticsView.render(); break;
             case 'prediction': html = await predictionsView.render(); break;
             case 'menu': html = await menuView.render(); break;
-            case 'cash-closing': html = await cashClosingView.render(); break;
+            case 'cash-closing':
+            case 'cashClosing': html = await cashClosingView.render(); break;
             case 'settings': html = await settingsView.render(); break;
             case 'tables': html = await tablesView.render(); break;
         }
@@ -968,7 +1006,8 @@ class AromaticApp {
             case 'analytics': analyticsView.bindEvents(this); break;
             case 'prediction': predictionsView.bindEvents(this); break;
             case 'menu': menuView.bindEvents(this); break;
-            case 'cash-closing': cashClosingView.bindEvents(this); break;
+            case 'cash-closing':
+            case 'cashClosing': cashClosingView.bindEvents(this); break;
             case 'settings': settingsView.bindEvents(this); break;
         }
     }
@@ -1116,6 +1155,15 @@ class AromaticApp {
 
     // Cart Logic
     async addToCart(product, index = null) {
+        // Check if cash register is open
+        const sesiones = await db.getCollection('caja_sesiones');
+        const activeSession = sesiones.find(s => !s.fechaCierre);
+        if (!activeSession) {
+            this.showToast('Debe abrir la caja antes de registrar productos', 'warning');
+            if (typeof audioService !== 'undefined') audioService.playError();
+            return;
+        }
+
         const cart = this.cart;
         let targetItem = null;
 
@@ -1318,6 +1366,27 @@ class AromaticApp {
     async updateCartUI() {
         const container = document.getElementById('cartItems');
         if (!container) return;
+
+        const sesiones = await db.getCollection('caja_sesiones');
+        const activeSession = sesiones.find(s => !s.fechaCierre);
+        
+        if (!activeSession) {
+            container.innerHTML = `
+                <div class="empty-cart" style="padding: 40px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; text-align: center; height: 100%;">
+                    <div style="width: 70px; height: 70px; background: #fffbeb; border: 1.5px dashed #f59e0b; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.1);">
+                        <i data-lucide="lock" style="width: 32px; height: 32px; color: #d97706;"></i>
+                    </div>
+                    <h3 style="font-family: 'Playfair Display', serif; font-size: 1.3rem; color: #4B3621; margin: 0; font-weight: 700;">Caja Cerrada</h3>
+                    <p style="font-size: 0.95rem; color: #6b7280; max-width: 220px; margin: 0; line-height: 1.4;">Debe registrar la apertura de caja para comenzar a recibir órdenes.</p>
+                    <button class="btn-primary" onclick="app.switchView('cash-closing')" style="margin-top: 10px; padding: 10px 20px; font-size: 0.9rem; border-radius: 12px; font-weight: 600; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 10px rgba(75, 54, 33, 0.15);">
+                        <i data-lucide="key-round" style="width: 16px;"></i>
+                        Abrir Caja
+                    </button>
+                </div>`;
+            this.updateSummary(0);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            return;
+        }
 
         const cart = this.cart;
 
@@ -2032,6 +2101,10 @@ class AromaticApp {
         const settings = db.getSettings();
         const cart = this.cart;
         const activePromos = await db.getActivePromotions();
+        
+        // Check cash sessions to disable checkout button if closed
+        const sesiones = await db.getCollection('caja_sesiones');
+        const activeSession = sesiones.find(s => !s.fechaCierre);
 
         let totalDiscount = 0;
 
@@ -2096,7 +2169,9 @@ class AromaticApp {
         if (totEl) totEl.textContent = `$${total.toFixed(2)}`;
 
         const checkoutBtn = document.getElementById('checkoutBtn');
-        if (checkoutBtn) checkoutBtn.disabled = subtotal === 0;
+        if (checkoutBtn) {
+            checkoutBtn.disabled = subtotal === 0 || !activeSession;
+        }
 
         // Store active discount in current ticket for payment/ticket generation
         this.tickets[this.activeTicketIdx].totalDescuento = totalDiscount;
@@ -2161,6 +2236,14 @@ class AromaticApp {
     }
 
     async handleCheckout() {
+        const sesiones = await db.getCollection('caja_sesiones');
+        const activeSession = sesiones.find(s => !s.fechaCierre);
+        if (!activeSession) {
+            this.showToast('No se puede realizar la venta. La caja está cerrada.', 'danger');
+            if (typeof audioService !== 'undefined') audioService.playError();
+            return;
+        }
+
         const settings = db.getSettings();
         const currentTicket = this.tickets[this.activeTicketIdx];
         const cliente = currentTicket.cliente;
@@ -2245,7 +2328,7 @@ class AromaticApp {
                     ` : ''}
 
                     <p style="color: var(--text-muted); margin-bottom: 16px; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;">Seleccione método de pago</p>
-                    <div class="payment-methods" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="payment-methods" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
                         <button class="btn-payment" id="payEfectivo" style="padding: 24px; position:relative; display: flex; flex-direction: column; gap: 12px; align-items: center; border-radius: 20px; border: 2px solid #eee; background: white; cursor: pointer; transition: all 0.2s;">
                             <small style="position:absolute; top:10px; right:10px; background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; color: #666; border: 1px solid #ddd;">F2</small>
                             <i data-lucide="banknote" style="width: 32px; height: 32px; color: var(--success);"></i>
@@ -2255,6 +2338,11 @@ class AromaticApp {
                             <small style="position:absolute; top:10px; right:10px; background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; color: #666; border: 1px solid #ddd;">F3</small>
                             <i data-lucide="credit-card" style="width: 32px; height: 32px; color: var(--primary);"></i>
                             <span style="font-weight: 700;">Tarjeta</span>
+                        </button>
+                        <button class="btn-payment" id="payTransferencia" style="padding: 24px; position:relative; display: flex; flex-direction: column; gap: 12px; align-items: center; border-radius: 20px; border: 2px solid #eee; background: white; cursor: pointer; transition: all 0.2s;">
+                            <small style="position:absolute; top:10px; right:10px; background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; color: #666; border: 1px solid #ddd;">F5</small>
+                            <i data-lucide="smartphone" style="width: 32px; height: 32px; color: var(--warning);"></i>
+                            <span style="font-weight: 700;">Transferencia</span>
                         </button>
                     </div>
                     <button class="btn-secondary" id="closeModal" style="margin-top: 24px; width: 100%; padding: 16px; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;">
@@ -2266,6 +2354,7 @@ class AromaticApp {
 
             document.getElementById('closeModal').onclick = () => modal.classList.add('hidden');
             document.getElementById('payTarjeta').onclick = () => processPayment('Tarjeta');
+            document.getElementById('payTransferencia').onclick = () => processPayment('Transferencia');
             document.getElementById('payEfectivo').onclick = showCashPayment;
 
             const redeemBtn = document.getElementById('redeemPointsBtn');
@@ -2569,7 +2658,7 @@ class AromaticApp {
                         </h2>
                     </div>
 
-                    <div class="checkout-methods">
+                    <div class="checkout-methods" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
                         <button class="method-btn" id="payEfectivoSplit" style="background: #f0fdf4; border-color: #bbf7d0; color: #166534;">
                             <i data-lucide="banknote"></i>
                             <span>Efectivo</span>
@@ -2577,6 +2666,10 @@ class AromaticApp {
                         <button class="method-btn" id="payTarjetaSplit" style="background: #eff6ff; border-color: #bfdbfe; color: #1e40af;">
                             <i data-lucide="credit-card"></i>
                             <span>Tarjeta</span>
+                        </button>
+                        <button class="method-btn" id="payTransferenciaSplit" style="background: #fff7ed; border-color: #ffedd5; color: #c2410c;">
+                            <i data-lucide="smartphone"></i>
+                            <span>Transferencia</span>
                         </button>
                     </div>
 
@@ -2591,6 +2684,7 @@ class AromaticApp {
 
             document.getElementById('payEfectivoSplit').onclick = () => showCashInput();
             document.getElementById('payTarjetaSplit').onclick = () => processSplitPayment('Tarjeta');
+            document.getElementById('payTransferenciaSplit').onclick = () => processSplitPayment('Transferencia');
         };
 
         const showCashInput = () => {
@@ -2993,20 +3087,74 @@ class AromaticApp {
     }
 
     showToast(message, type = 'success') {
-        // Reutilizamos el modal pequeño o creamos uno flotante. Usaremos alert por simplicidad o el toast de settingsView si fuera estático.
-        // Simularemos un toast flotante
         const toast = document.createElement('div');
+        
+        // Define theme styles based on toast type
+        const themes = {
+            success: {
+                bg: 'rgba(240, 253, 244, 0.95)',
+                border: '1px solid #bbf7d0',
+                color: '#15803d',
+                icon: 'check-circle'
+            },
+            danger: {
+                bg: 'rgba(255, 241, 242, 0.95)',
+                border: '1px solid #fecaca',
+                color: '#991b1b',
+                icon: 'alert-circle'
+            },
+            error: {
+                bg: 'rgba(255, 241, 242, 0.95)',
+                border: '1px solid #fecaca',
+                color: '#991b1b',
+                icon: 'alert-circle'
+            },
+            warning: {
+                bg: 'rgba(255, 247, 237, 0.95)',
+                border: '1px solid #fed7aa',
+                color: '#ea580c',
+                icon: 'alert-triangle'
+            },
+            info: {
+                bg: 'rgba(240, 249, 255, 0.95)',
+                border: '1px solid #bae6fd',
+                color: '#0369a1',
+                icon: 'info'
+            }
+        };
+
+        const theme = themes[type] || themes.success;
+
         toast.style.cssText = `
-            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
-            background: #333; color: white; padding: 15px 30px; border-radius: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 9999; font-weight: 500;
-            display: flex; align-items: center; gap: 10px; animation: fadeInUp 0.3s forwards;
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: ${theme.bg};
+            border: ${theme.border};
+            color: ${theme.color};
+            padding: 14px 28px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(75, 54, 33, 0.15), 0 8px 10px -6px rgba(75, 54, 33, 0.1);
+            z-index: 9999;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            animation: fadeInUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         `;
-        toast.innerHTML = `<i data-lucide="check-circle" style="color: #4ade80;"></i> ${message}`;
+        
+        toast.innerHTML = `<i data-lucide="${theme.icon}" style="width: 20px; height: 20px; flex-shrink: 0;"></i> <span>${message}</span>`;
         document.body.appendChild(toast);
         if (typeof lucide !== 'undefined') lucide.createIcons();
+        
         setTimeout(() => {
             toast.style.opacity = '0';
+            toast.style.transform = 'translateX(-50%) translateY(15px) scale(0.9)';
             setTimeout(() => toast.remove(), 300);
         }, 3000);
     }
