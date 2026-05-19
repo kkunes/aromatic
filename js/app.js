@@ -5,7 +5,7 @@
 class AromaticApp {
     constructor() {
         this.currentView = 'pos';
-        this.tickets = [{ id: 1, cart: [], cliente: null, mesaId: null }];
+        this.tickets = [{ id: 1, cart: [], cliente: null, mesaId: null, folio: null }];
         this.activeTicketIdx = 0;
         this.ticketCounter = 1;
         this.activePinUserId = null;
@@ -487,7 +487,8 @@ class AromaticApp {
             const order = doc.data();
 
             // Clear current cart and import
-            this.tickets[this.activeTicketIdx].cart = order.items.map(item => ({
+            const ticket = this.tickets[this.activeTicketIdx];
+            ticket.cart = order.items.map(item => ({
                 id: item.id,
                 nombre: item.nombre,
                 precio: item.precio, // This should be pre-calculated unitPrice if extras applied, or we handle them
@@ -498,6 +499,8 @@ class AromaticApp {
                 nota: item.nota || '',
                 imagen: item.imagen || 'recursos/logo efimero.png'
             }));
+            ticket.folioKiosco = order.folioKiosco || null;
+            ticket.origen = 'KIOSCO';
 
             // Mark order as 'processing' or just delete it if paid
             // For now, let's keep it in Firestore until final POS checkout deletes it, 
@@ -1048,7 +1051,7 @@ class AromaticApp {
     // Multi-Ticket Logic
     createNewTicket() {
         this.ticketCounter++;
-        this.tickets.push({ id: this.ticketCounter, cart: [], cliente: null });
+        this.tickets.push({ id: this.ticketCounter, cart: [], cliente: null, idOrden: null, folioKiosco: null, origen: null, folio: null });
         this.activeTicketIdx = this.tickets.length - 1;
         this.updateTicketsUI();
         this.updateCartUI();
@@ -1084,6 +1087,10 @@ class AromaticApp {
         if (this.tickets.length === 1) {
             this.tickets[0].cart = [];
             this.tickets[0].cliente = null;
+            this.tickets[0].idOrden = null;
+            this.tickets[0].folioKiosco = null;
+            this.tickets[0].origen = null;
+            this.tickets[0].folio = null;
         } else {
             this.tickets.splice(index, 1);
             if (this.activeTicketIdx >= this.tickets.length) {
@@ -2485,7 +2492,7 @@ class AromaticApp {
             }
 
             const venta = {
-                folio: db.getNextFolio(),
+                folio: currentTicket.folio || db.getNextFolio(),
                 items: [...cart],
                 total: finalTotal,
                 totalOriginal: totalOriginal,
@@ -2505,7 +2512,10 @@ class AromaticApp {
                     nombre: currentTicket.cliente.nombre,
                     puntos: puntosNuevos // Grab the updated point total
                 } : null,
-                mesa: mesaInfo
+                mesa: mesaInfo,
+                idOrden: currentTicket.idOrden || null,
+                folioKiosco: currentTicket.folioKiosco || null,
+                origen: currentTicket.origen || 'POS'
             };
 
             const docRef = await db.addDocument('ventas', venta);
@@ -2739,7 +2749,11 @@ class AromaticApp {
                 cambio: change,
                 cliente: cliente ? { id: cliente.id, nombre: cliente.nombre, puntos: cliente.puntos } : null,
                 mesa: mesaInfo,
-                isSplit: true
+                isSplit: true,
+                idOrden: (mesa.orden && mesa.orden.idOrden) || null,
+                folioKiosco: (mesa.orden && mesa.orden.folioKiosco) || null,
+                origen: (mesa.orden && mesa.orden.origen) || 'POS',
+                folioOriginalComanda: (mesa.orden && mesa.orden.folio) || null
             };
 
             await db.addDocument('ventas', venta);
@@ -2944,19 +2958,26 @@ class AromaticApp {
         }
 
         const ticketIdx = this.activeTicketIdx;
+        const orderId = 'M-' + mesa.id + '-' + Date.now().toString().slice(-4);
 
         // Configurar ticket para la mesa
         this.tickets[ticketIdx].mesaId = mesa.id;
         this.tickets[ticketIdx].cart = [];
         this.tickets[ticketIdx].cliente = null;
+        this.tickets[ticketIdx].idOrden = orderId;
+        this.tickets[ticketIdx].folioKiosco = null;
+        this.tickets[ticketIdx].origen = 'POS';
+        this.tickets[ticketIdx].folio = null;
 
         // Marcar mesa como ocupada en DB
         await db.updateDocument('mesas', mesa.id, {
             estado: 'ocupada',
             orden: {
+                idOrden: orderId,
                 fechaInicio: new Date().toISOString(),
                 items: [],
-                total: 0
+                total: 0,
+                folio: null
             }
         });
 
@@ -2978,6 +2999,10 @@ class AromaticApp {
         this.tickets[ticketIdx].mesaId = mesaId;
         this.tickets[ticketIdx].cart = JSON.parse(JSON.stringify(mesa.orden.items)); // Deep copy
         this.tickets[ticketIdx].cliente = mesa.orden.cliente || null; // Restaurar cliente
+        this.tickets[ticketIdx].idOrden = mesa.orden.idOrden || ('M-' + mesaId + '-' + Date.now().toString().slice(-4));
+        this.tickets[ticketIdx].folioKiosco = mesa.orden.folioKiosco || null;
+        this.tickets[ticketIdx].origen = mesa.orden.origen || 'POS';
+        this.tickets[ticketIdx].folio = mesa.orden.folio || null;
 
         const modal = document.getElementById('modalContainer');
         if (modal) modal.classList.add('hidden');
@@ -3000,19 +3025,33 @@ class AromaticApp {
         const mesas = await db.getCollection('mesas');
         const mesa = mesas.find(m => m.id === ticket.mesaId);
 
+        const orderId = ticket.idOrden || (mesa.orden && mesa.orden.idOrden) || ('M-' + ticket.mesaId + '-' + Date.now().toString().slice(-4));
+
+        // Pre-allocate folio if it doesn't exist yet so comanda and ticket share it
+        if (!ticket.folio) {
+            ticket.folio = db.getNextFolio();
+        }
+
         const comandaData = {
-            id: 'M-' + ticket.mesaId + '-' + Date.now().toString().slice(-4),
+            id: orderId,
+            folio: ticket.folio,
             fecha: new Date().toISOString(),
             items: JSON.parse(JSON.stringify(ticket.cart)),
             cliente: ticket.cliente,
-            mesa: mesa ? { id: mesa.id, nombre: mesa.nombre, area: mesa.area } : { id: ticket.mesaId, nombre: 'Mesa ' + ticket.mesaId }
+            mesa: mesa ? { id: mesa.id, nombre: mesa.nombre, area: mesa.area } : { id: ticket.mesaId, nombre: 'Mesa ' + ticket.mesaId },
+            folioKiosco: ticket.folioKiosco || null,
+            origen: ticket.origen || 'POS'
         };
 
         // Actualizar base de datos
         await db.updateDocument('mesas', ticket.mesaId, {
+            'orden.idOrden': orderId,
             'orden.items': ticket.cart,
             'orden.total': total,
-            'orden.cliente': ticket.cliente
+            'orden.cliente': ticket.cliente,
+            'orden.folioKiosco': ticket.folioKiosco || null,
+            'orden.origen': ticket.origen || 'POS',
+            'orden.folio': ticket.folio
         });
 
         // Limpiar ticket local y preparar para venta inmediata de mostrador

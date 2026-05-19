@@ -67,6 +67,9 @@ const ticketView = {
                 
                 <div class="ticket-info" style="border-bottom: 1px dashed #000; padding-bottom: 8px; margin-bottom: 10px; color: #000;">
                     <p style="margin: 2px 0;"><strong>Ticket:</strong> #${venta.folio || (venta.id || '---').slice(-8).toUpperCase()}</p>
+                    ${venta.folioKiosco ? `<p style="margin: 2px 0;"><strong>Folio Kiosco:</strong> #${venta.folioKiosco}</p>` : ''}
+                    <p style="margin: 2px 0;"><strong>Orden Cocina:</strong> #${venta.folioOriginalComanda || venta.folio || (venta.idOrden || venta.id || '---').slice(-4).toUpperCase()}</p>
+                    ${venta.isSplit && venta.folioOriginalComanda ? `<p style="margin: 2px 0; font-size: 0.85em; font-style: italic; color: #666;">(Pago Parcial de Comanda #${venta.folioOriginalComanda})</p>` : ''}
                     ${venta.mesa ? `<p style="margin: 2px 0;"><strong>Mesa:</strong> ${venta.mesa.nombre} (${venta.mesa.area})</p>` : ''}
                     <p style="margin: 2px 0;"><strong>Fecha:</strong> ${new Date(venta.fecha).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}</p>
                 </div>
@@ -260,7 +263,15 @@ const ticketView = {
             <div class="ticket-container" style="font-size: ${config.tamanoFuente + 2}px; width: ${config.anchoPapel === 80 ? '80mm' : '100%'}; color: #000 !important; font-family: 'Courier New', Courier, monospace;">
                 <div class="ticket-header" style="text-align: center; margin-bottom: 15px; border-bottom: 2px solid #000; padding-bottom: 10px; color: #000;">
                     <h2 style="font-size: 1.4em; margin: 0 0 5px 0; color: #000;">COMANDA DE COCINA</h2>
-                    <p style="font-size: 1.1em; margin: 0; font-weight: bold;">ORDEN: #${(venta.id || '---').slice(-4).toUpperCase()}</p>
+                    <p style="font-size: 1.1em; margin: 0; font-weight: bold;">
+                        ${venta.folioKiosco 
+                            ? `FOLIO KIOSCO: #${venta.folioKiosco}` 
+                            : `FOLIO: #${venta.folioOriginalComanda || venta.folio || (venta.idOrden || venta.id || '---').slice(-4).toUpperCase()}`}
+                    </p>
+                    ${(venta.folioOriginalComanda && venta.folioOriginalComanda !== venta.folio) || (venta.folio && venta.folioKiosco) 
+                        ? `<p style="font-size: 0.95em; margin: 4px 0 0 0; font-weight: 600; color: #000;">Ticket Asociado: #${venta.folio}</p>` 
+                        : ''}
+                    ${venta.folio && !venta.folioKiosco && !venta.folioOriginalComanda && venta.idOrden ? `<p style="font-size: 0.95em; margin: 4px 0 0 0; font-weight: 600; color: #000;">Orden Original: #${venta.idOrden.slice(-4).toUpperCase()}</p>` : ''}
                     ${venta.mesa ? `<div style="border: 2px solid #000; display: inline-block; padding: 4px 8px; margin: 6px 0; font-weight: bold; font-size: 1.1em;">${venta.mesa.nombre.toUpperCase()}</div>` : ''}
                     <p style="font-size: 0.9em; margin: 5px 0 0 0;">${new Date(venta.fecha).toLocaleString('es-MX', { hour: '2-digit', minute: '2-digit' })}</p>
                     ${venta.cliente ? `<p style="font-size: 0.9em; margin: 5px 0 0 0; font-style: italic;">Cliente: ${venta.cliente.nombre}</p>` : ''}
