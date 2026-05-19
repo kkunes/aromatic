@@ -68,9 +68,13 @@ const posView = {
                     border-color: var(--primary);
                     box-shadow: 0 10px 20px rgba(75, 54, 33, 0.2);
                 }
+                .category-filters {
+                    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 20px, black calc(100% - 20px), transparent 100%);
+                    mask-image: linear-gradient(to right, transparent 0%, black 20px, black calc(100% - 20px), transparent 100%);
+                }
             </style>
             <div class="pos-container fade-in">
-                <div class="category-filters hide-scrollbar" style="display: flex; gap: 12px; overflow-x: auto; padding: 5px 2px 15px 2px; margin-bottom: 20px;">
+                <div class="category-filters hide-scrollbar" style="display: flex; gap: 12px; overflow-x: auto; padding: 5px 20px 15px 20px; margin-bottom: 20px;">
                     <div class="chip active" data-category="all">
                         <i data-lucide="layout-grid" style="width: 18px;"></i> Todos
                     </div>
@@ -153,6 +157,38 @@ const posView = {
                 this.filterByCategory(cat);
             });
         });
+
+        // Mouse wheel scroll to slide categories horizontally with premium smooth animation
+        const filtersContainer = document.querySelector('.category-filters');
+        if (filtersContainer) {
+            let targetScroll = filtersContainer.scrollLeft;
+            let currentScroll = filtersContainer.scrollLeft;
+            let animationFrameId = null;
+
+            const updateScroll = () => {
+                const diff = targetScroll - currentScroll;
+                if (Math.abs(diff) > 0.5) {
+                    currentScroll += diff * 0.12; // Easing factor: 0.12 for incredibly smooth and responsive feel
+                    filtersContainer.scrollLeft = currentScroll;
+                    animationFrameId = requestAnimationFrame(updateScroll);
+                } else {
+                    filtersContainer.scrollLeft = targetScroll;
+                    currentScroll = targetScroll;
+                    animationFrameId = null;
+                }
+            };
+
+            filtersContainer.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const maxScroll = filtersContainer.scrollWidth - filtersContainer.clientWidth;
+                // Accumulate target and clamp it
+                targetScroll = Math.max(0, Math.min(maxScroll, targetScroll + e.deltaY));
+                
+                if (!animationFrameId) {
+                    animationFrameId = requestAnimationFrame(updateScroll);
+                }
+            }, { passive: false });
+        }
     },
 
     filterByCategory(category) {
