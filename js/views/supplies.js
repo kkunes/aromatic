@@ -2,6 +2,7 @@ const suppliesView = {
     insumos: [],
     activeCategory: 'all',
     filterQuery: '',
+    sortOption: 'nombre_asc',
 
     async render() {
         this.insumos = await db.getCollection('insumos');
@@ -14,6 +15,24 @@ const suppliesView = {
             const matchesCat = this.activeCategory === 'all' || (i.categoria || 'General') === this.activeCategory;
             const matchesSearch = i.nombre.toLowerCase().includes(this.filterQuery.toLowerCase());
             return matchesCat && matchesSearch;
+        });
+
+        // Ordenar insumos
+        filteredInsumos.sort((a, b) => {
+            const [field, order] = (this.sortOption || 'nombre_asc').split('_');
+            let valA = a[field];
+            let valB = b[field];
+            
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+            if (field === 'costoUnitario') {
+                valA = a.costoUnitario || 0;
+                valB = b.costoUnitario || 0;
+            }
+            
+            if (valA < valB) return order === 'asc' ? -1 : 1;
+            if (valA > valB) return order === 'asc' ? 1 : -1;
+            return 0;
         });
 
         return `
@@ -38,18 +57,33 @@ const suppliesView = {
                     </div>
                 </div>
 
-                <!-- Tabs de Categorías -->
-                <div class="category-filters hide-scrollbar" style="flex-shrink: 0; margin-bottom: 20px; padding-bottom: 5px;">
-                    <button class="chip ${this.activeCategory === 'all' ? 'active' : ''}" 
-                            onclick="suppliesView.filterCategory('all')">
-                        Todo
-                    </button>
-                    ${categories.filter(c => c !== 'all').map(cat => `
-                        <button class="chip ${this.activeCategory === cat ? 'active' : ''}" 
-                                onclick="suppliesView.filterCategory('${cat}')">
-                            ${cat}
+                <!-- Controles: Tabs y Ordenamiento -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 15px; flex-wrap: wrap;">
+                    <div class="category-filters hide-scrollbar" style="display: flex; gap: 12px; overflow-x: auto; flex: 1; padding-bottom: 5px; margin-bottom: 0;">
+                        <button class="chip ${this.activeCategory === 'all' ? 'active' : ''}" 
+                                onclick="suppliesView.filterCategory('all')">
+                            Todo
                         </button>
-                    `).join('')}
+                        ${categories.filter(c => c !== 'all').map(cat => `
+                            <button class="chip ${this.activeCategory === cat ? 'active' : ''}" 
+                                    onclick="suppliesView.filterCategory('${cat}')">
+                                ${cat}
+                            </button>
+                        `).join('')}
+                    </div>
+
+                    <div class="sort-control-wrapper" style="display: flex; align-items: center; background: white; border: 1px solid #e2e8f0; border-radius: 20px; padding: 6px 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); transition: all 0.3s ease;">
+                        <i data-lucide="arrow-up-down" style="width: 16px; color: var(--text-muted); margin-right: 8px;"></i>
+                        <select onchange="suppliesView.changeSort(this.value)" style="border: none; background: transparent; font-weight: 600; color: var(--text-color); font-size: 0.9rem; outline: none; cursor: pointer; -webkit-appearance: none; appearance: none; padding-right: 10px;">
+                            <option value="nombre_asc" ${this.sortOption === 'nombre_asc' ? 'selected' : ''}>A - Z</option>
+                            <option value="nombre_desc" ${this.sortOption === 'nombre_desc' ? 'selected' : ''}>Z - A</option>
+                            <option value="stock_asc" ${this.sortOption === 'stock_asc' ? 'selected' : ''}>Stock: Menor a Mayor</option>
+                            <option value="stock_desc" ${this.sortOption === 'stock_desc' ? 'selected' : ''}>Stock: Mayor a Menor</option>
+                            <option value="costoUnitario_desc" ${this.sortOption === 'costoUnitario_desc' ? 'selected' : ''}>Mayor Costo</option>
+                            <option value="costoUnitario_asc" ${this.sortOption === 'costoUnitario_asc' ? 'selected' : ''}>Menor Costo</option>
+                        </select>
+                        <i data-lucide="chevron-down" style="width: 14px; color: var(--text-muted);"></i>
+                    </div>
                 </div>
 
                 <div id="supplies-stats-container" class="stats-grid" style="flex-shrink: 0; margin-bottom: 25px; margin-top: 0;">
@@ -148,6 +182,11 @@ const suppliesView = {
         this.refreshGrid();
     },
 
+    changeSort(option) {
+        this.sortOption = option;
+        this.refreshGrid();
+    },
+
     async refreshGrid() {
         const resultsContainer = document.getElementById('supplies-table-container');
         const statsContainer = document.getElementById('supplies-stats-container');
@@ -159,6 +198,24 @@ const suppliesView = {
                 const matchesCat = this.activeCategory === 'all' || (i.categoria || 'General') === this.activeCategory;
                 const matchesSearch = i.nombre.toLowerCase().includes(this.filterQuery.toLowerCase());
                 return matchesCat && matchesSearch;
+            });
+
+            // Ordenar insumos
+            filteredInsumos.sort((a, b) => {
+                const [field, order] = (this.sortOption || 'nombre_asc').split('_');
+                let valA = a[field];
+                let valB = b[field];
+                
+                if (typeof valA === 'string') valA = valA.toLowerCase();
+                if (typeof valB === 'string') valB = valB.toLowerCase();
+                if (field === 'costoUnitario') {
+                    valA = a.costoUnitario || 0;
+                    valB = b.costoUnitario || 0;
+                }
+                
+                if (valA < valB) return order === 'asc' ? -1 : 1;
+                if (valA > valB) return order === 'asc' ? 1 : -1;
+                return 0;
             });
 
             // Update Stats
