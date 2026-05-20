@@ -557,5 +557,23 @@ const db = {
         this.saveSettings(settings);
 
         return currentFolio;
+    },
+
+    getNextOrderNumber() {
+        const today = new Date().toISOString().split('T')[0];
+        let currentDay = localStorage.getItem('aromatic_order_day');
+        let currentOrderNumber = parseInt(localStorage.getItem('aromatic_daily_order_number') || '0', 10);
+
+        if (currentDay !== today) {
+            currentDay = today;
+            currentOrderNumber = 1;
+        } else {
+            currentOrderNumber++;
+        }
+
+        localStorage.setItem('aromatic_order_day', currentDay);
+        localStorage.setItem('aromatic_daily_order_number', currentOrderNumber.toString());
+
+        return currentOrderNumber;
     }
 };

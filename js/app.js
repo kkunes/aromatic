@@ -1051,7 +1051,7 @@ class AromaticApp {
     // Multi-Ticket Logic
     createNewTicket() {
         this.ticketCounter++;
-        this.tickets.push({ id: this.ticketCounter, cart: [], cliente: null, idOrden: null, folioKiosco: null, origen: null, folio: null });
+        this.tickets.push({ id: this.ticketCounter, cart: [], cliente: null, idOrden: null, folioKiosco: null, origen: null, folio: null, numeroOrdenDia: null });
         this.activeTicketIdx = this.tickets.length - 1;
         this.updateTicketsUI();
         this.updateCartUI();
@@ -1091,6 +1091,7 @@ class AromaticApp {
             this.tickets[0].folioKiosco = null;
             this.tickets[0].origen = null;
             this.tickets[0].folio = null;
+            this.tickets[0].numeroOrdenDia = null;
         } else {
             this.tickets.splice(index, 1);
             if (this.activeTicketIdx >= this.tickets.length) {
@@ -2493,6 +2494,7 @@ class AromaticApp {
 
             const venta = {
                 folio: currentTicket.folio || db.getNextFolio(),
+                numeroOrdenDia: currentTicket.numeroOrdenDia || db.getNextOrderNumber(),
                 items: [...cart],
                 total: finalTotal,
                 totalOriginal: totalOriginal,
@@ -2738,6 +2740,7 @@ class AromaticApp {
 
             const venta = {
                 folio: db.getNextFolio(),
+                numeroOrdenDia: db.getNextOrderNumber(),
                 items: [...selectedItems],
                 total: finalTotal,
                 totalOriginal: totalOriginal,
@@ -2968,6 +2971,7 @@ class AromaticApp {
         this.tickets[ticketIdx].folioKiosco = null;
         this.tickets[ticketIdx].origen = 'POS';
         this.tickets[ticketIdx].folio = null;
+        this.tickets[ticketIdx].numeroOrdenDia = null;
 
         // Marcar mesa como ocupada en DB
         await db.updateDocument('mesas', mesa.id, {
@@ -3003,6 +3007,7 @@ class AromaticApp {
         this.tickets[ticketIdx].folioKiosco = mesa.orden.folioKiosco || null;
         this.tickets[ticketIdx].origen = mesa.orden.origen || 'POS';
         this.tickets[ticketIdx].folio = mesa.orden.folio || null;
+        this.tickets[ticketIdx].numeroOrdenDia = mesa.orden.numeroOrdenDia || null;
 
         const modal = document.getElementById('modalContainer');
         if (modal) modal.classList.add('hidden');
@@ -3031,10 +3036,14 @@ class AromaticApp {
         if (!ticket.folio) {
             ticket.folio = db.getNextFolio();
         }
+        if (!ticket.numeroOrdenDia) {
+            ticket.numeroOrdenDia = db.getNextOrderNumber();
+        }
 
         const comandaData = {
             id: orderId,
             folio: ticket.folio,
+            numeroOrdenDia: ticket.numeroOrdenDia,
             fecha: new Date().toISOString(),
             items: JSON.parse(JSON.stringify(ticket.cart)),
             cliente: ticket.cliente,
@@ -3051,7 +3060,8 @@ class AromaticApp {
             'orden.cliente': ticket.cliente,
             'orden.folioKiosco': ticket.folioKiosco || null,
             'orden.origen': ticket.origen || 'POS',
-            'orden.folio': ticket.folio
+            'orden.folio': ticket.folio,
+            'orden.numeroOrdenDia': ticket.numeroOrdenDia
         });
 
         // Limpiar ticket local y preparar para venta inmediata de mostrador
