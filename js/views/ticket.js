@@ -143,10 +143,21 @@ const ticketView = {
                             <span>-$${venta.descuentoPuntos.toFixed(2)}</span>
                         </p>
                     ` : ''}
-                    ${venta.pagadoCon ? `
-                        <p style="margin: 2px 0; display: flex; justify-content: space-between; font-size: 0.9em; color: #000;"><span>Recibido:</span> <span>$${venta.pagadoCon.toFixed(2)}</span></p>
-                        <p style="margin: 2px 0; display: flex; justify-content: space-between; font-size: 0.9em; color: #000;"><span>Cambio:</span> <span>$${venta.cambio.toFixed(2)}</span></p>
-                    ` : ''}
+                    <div style="margin-top: 6px; border-top: 1px dashed #000; padding-top: 4px; font-size: 0.85em; color: #000;">
+                        <p style="margin: 2px 0; display: flex; justify-content: space-between;">
+                            <span>Forma de Pago:</span>
+                            <strong style="text-transform: uppercase;">${venta.metodoPago || 'Efectivo'}</strong>
+                        </p>
+                        ${venta.desglosePago && (venta.metodoPago === 'Mixto' || venta.desglosePago.efectivo > 0 && (venta.desglosePago.tarjeta > 0 || venta.desglosePago.transferencia > 0)) ? `
+                            ${venta.desglosePago.efectivo > 0 ? `<p style="margin: 1px 0 1px 10px; display: flex; justify-content: space-between;"><span>• Efectivo:</span> <span>$${venta.desglosePago.efectivo.toFixed(2)}</span></p>` : ''}
+                            ${venta.desglosePago.tarjeta > 0 ? `<p style="margin: 1px 0 1px 10px; display: flex; justify-content: space-between;"><span>• Tarjeta:</span> <span>$${venta.desglosePago.tarjeta.toFixed(2)}</span></p>` : ''}
+                            ${venta.desglosePago.transferencia > 0 ? `<p style="margin: 1px 0 1px 10px; display: flex; justify-content: space-between;"><span>• Transferencia:</span> <span>$${venta.desglosePago.transferencia.toFixed(2)}</span></p>` : ''}
+                        ` : ''}
+                        ${venta.pagadoCon ? `
+                            <p style="margin: 2px 0; display: flex; justify-content: space-between;"><span>Recibido:</span> <span>$${venta.pagadoCon.toFixed(2)}</span></p>
+                            <p style="margin: 2px 0; display: flex; justify-content: space-between;"><span>Cambio:</span> <span>$${(venta.cambio || 0).toFixed(2)}</span></p>
+                        ` : ''}
+                    </div>
                 </div>
 
                 <div class="ticket-footer" style="text-align: center; margin-top: 15px; border-top: 1px dashed #000; padding-top: 10px; color: #000;">

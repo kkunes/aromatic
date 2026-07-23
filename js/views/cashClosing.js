@@ -206,7 +206,10 @@ const cashClosingView = {
         const sessionVentas = ventas.filter(v => new Date(v.fecha) >= sessionStart);
         const sessionMovs = movimientos.filter(m => m.idSesion === this.currentSession.id);
 
-        const ventasEfectivoSession = sessionVentas.filter(v => v.metodoPago === 'Efectivo').reduce((sum, v) => sum + v.total, 0);
+        const ventasEfectivoSession = sessionVentas.reduce((sum, v) => {
+            const efec = v.desglosePago?.efectivo !== undefined ? v.desglosePago.efectivo : (v.metodoPago === 'Efectivo' ? v.total : 0);
+            return sum + efec;
+        }, 0);
         const ingresos = sessionMovs.filter(m => m.tipo === 'INGRESO').reduce((sum, m) => sum + m.monto, 0);
         const retiros = sessionMovs.filter(m => m.tipo === 'RETIRO').reduce((sum, m) => sum + m.monto, 0);
         const saldoInicial = this.currentSession.montoInicial;
@@ -223,7 +226,13 @@ const cashClosingView = {
 
         filteredVentas.forEach(v => {
             totalVentasFilter += v.total;
-            if (metodosData[v.metodoPago] !== undefined) metodosData[v.metodoPago] += v.total;
+            if (v.desglosePago) {
+                metodosData['Efectivo'] += (v.desglosePago.efectivo || 0);
+                metodosData['Tarjeta'] += (v.desglosePago.tarjeta || 0);
+                metodosData['Transferencia'] += (v.desglosePago.transferencia || 0);
+            } else if (metodosData[v.metodoPago] !== undefined) {
+                metodosData[v.metodoPago] += v.total;
+            }
 
             // Empleados
             const empName = v.vendedorNombre || 'Sistema/Admin';
@@ -232,8 +241,8 @@ const cashClosingView = {
             // Categorias (Iterate items)
             if (v.items && v.items.length > 0) {
                 v.items.forEach(item => {
-                    const cat = item.producto.categoria || 'Sin Categoría';
-                    const itemTotal = item.cantidad * item.producto.precio;
+                    const cat = (item.producto?.categoria || item.categoria) || 'Sin Categoría';
+                    const itemTotal = item.cantidad * (item.producto?.precio || item.precio || 0);
                     categoriasData[cat] = (categoriasData[cat] || 0) + itemTotal;
                 });
             }

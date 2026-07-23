@@ -22,9 +22,9 @@ const salesView = {
         const sortedVentas = [...filtered].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
         const totalVentas = dateVentas.reduce((sum, v) => sum + v.total, 0);
-        const totalEfectivo = dateVentas.filter(v => v.metodoPago === 'Efectivo').reduce((sum, v) => sum + v.total, 0);
-        const totalTarjeta = dateVentas.filter(v => v.metodoPago === 'Tarjeta').reduce((sum, v) => sum + v.total, 0);
-        const totalTransferencia = dateVentas.filter(v => v.metodoPago === 'Transferencia').reduce((sum, v) => sum + v.total, 0);
+        const totalEfectivo = dateVentas.reduce((sum, v) => sum + (v.desglosePago?.efectivo !== undefined ? v.desglosePago.efectivo : (v.metodoPago === 'Efectivo' ? v.total : 0)), 0);
+        const totalTarjeta = dateVentas.reduce((sum, v) => sum + (v.desglosePago?.tarjeta !== undefined ? v.desglosePago.tarjeta : (v.metodoPago === 'Tarjeta' ? v.total : 0)), 0);
+        const totalTransferencia = dateVentas.reduce((sum, v) => sum + (v.desglosePago?.transferencia !== undefined ? v.desglosePago.transferencia : (v.metodoPago === 'Transferencia' ? v.total : 0)), 0);
         const ticketPromedio = dateVentas.length > 0 ? totalVentas / dateVentas.length : 0;
 
         return `
@@ -242,7 +242,7 @@ const salesView = {
 
                             <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 16px; border-top: 1px solid #f1f5f9;">
                                 <div style="display: flex; align-items: center; gap: 8px;">
-                                    <i data-lucide="${v.metodoPago === 'Efectivo' ? 'banknote' : v.metodoPago === 'Transferencia' ? 'smartphone' : 'credit-card'}" style="width: 18px; height: 18px; color: ${v.metodoPago === 'Efectivo' ? '#22c55e' : v.metodoPago === 'Transferencia' ? '#f97316' : '#3b82f6'};"></i>
+                                    <i data-lucide="${v.metodoPago === 'Efectivo' ? 'banknote' : v.metodoPago === 'Transferencia' ? 'smartphone' : v.metodoPago === 'Mixto' ? 'layers' : 'credit-card'}" style="width: 18px; height: 18px; color: ${v.metodoPago === 'Efectivo' ? '#22c55e' : v.metodoPago === 'Transferencia' ? '#f97316' : v.metodoPago === 'Mixto' ? 'var(--accent)' : '#3b82f6'};"></i>
                                     <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">${v.metodoPago}</span>
                                 </div>
                                 <div style="color: var(--primary); font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;">
@@ -316,8 +316,8 @@ const salesView = {
                                             </div>
                                         </td>
                                         <td style="padding: 20px 24px; text-align: center;">
-                                            <div style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; ${v.metodoPago === 'Efectivo' ? 'background: #f0fdf4; color: #166534;' : v.metodoPago === 'Transferencia' ? 'background: #fff7ed; color: #c2410c;' : 'background: #eff6ff; color: #1e40af;'}">
-                                                <i data-lucide="${v.metodoPago === 'Efectivo' ? 'banknote' : v.metodoPago === 'Transferencia' ? 'smartphone' : 'credit-card'}" style="width: 14px; height: 14px;"></i>
+                                            <div style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; ${v.metodoPago === 'Efectivo' ? 'background: #f0fdf4; color: #166534;' : v.metodoPago === 'Transferencia' ? 'background: #fff7ed; color: #c2410c;' : v.metodoPago === 'Mixto' ? 'background: rgba(226, 150, 93, 0.1); color: var(--accent);' : 'background: #eff6ff; color: #1e40af;'}">
+                                                <i data-lucide="${v.metodoPago === 'Efectivo' ? 'banknote' : v.metodoPago === 'Transferencia' ? 'smartphone' : v.metodoPago === 'Mixto' ? 'layers' : 'credit-card'}" style="width: 14px; height: 14px;"></i>
                                                 ${v.metodoPago}
                                             </div>
                                         </td>

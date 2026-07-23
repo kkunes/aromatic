@@ -719,6 +719,11 @@ class AromaticApp {
                     const transferenciaBtn = document.getElementById('payTransferencia');
                     if (transferenciaBtn) transferenciaBtn.click();
                     break;
+                case 'F6':
+                    e.preventDefault();
+                    const mixtoBtn = document.getElementById('payMixto');
+                    if (mixtoBtn) mixtoBtn.click();
+                    break;
                 case 'F4':
                     e.preventDefault();
                     const redeemBtn = document.getElementById('redeemPointsBtn');
@@ -851,7 +856,7 @@ class AromaticApp {
                                 <span style="font-size: 0.8rem; font-weight: 400; opacity: 0.5;">$</span>${v.total.toFixed(2)}
                             </div>
                         </div>
-                        <span class="badge ${v.metodoPago === 'Efectivo' ? 'success' : v.metodoPago === 'Transferencia' ? 'warning' : 'primary'}" style="font-size: 0.65rem; text-transform: uppercase;">
+                        <span class="badge ${v.metodoPago === 'Efectivo' ? 'success' : v.metodoPago === 'Transferencia' ? 'warning' : v.metodoPago === 'Mixto' ? 'accent' : 'primary'}" style="font-size: 0.65rem; text-transform: uppercase;">
                             ${v.metodoPago}
                         </span>
                     </div>
@@ -2336,21 +2341,26 @@ class AromaticApp {
                     ` : ''}
 
                     <p style="color: var(--text-muted); margin-bottom: 16px; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;">Seleccione método de pago</p>
-                    <div class="payment-methods" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
-                        <button class="btn-payment" id="payEfectivo" style="padding: 24px; position:relative; display: flex; flex-direction: column; gap: 12px; align-items: center; border-radius: 20px; border: 2px solid #eee; background: white; cursor: pointer; transition: all 0.2s;">
-                            <small style="position:absolute; top:10px; right:10px; background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; color: #666; border: 1px solid #ddd;">F2</small>
-                            <i data-lucide="banknote" style="width: 32px; height: 32px; color: var(--success);"></i>
-                            <span style="font-weight: 700;">Efectivo</span>
+                    <div class="payment-methods" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
+                        <button class="btn-payment" id="payEfectivo" style="padding: 20px; position:relative; display: flex; flex-direction: column; gap: 8px; align-items: center; border-radius: 18px; border: 2px solid #eee; background: white; cursor: pointer; transition: all 0.2s;">
+                            <small style="position:absolute; top:8px; right:10px; background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; color: #666; border: 1px solid #ddd;">F2</small>
+                            <i data-lucide="banknote" style="width: 28px; height: 28px; color: var(--success);"></i>
+                            <span style="font-weight: 700; font-size: 0.95rem;">Efectivo</span>
                         </button>
-                        <button class="btn-payment" id="payTarjeta" style="padding: 24px; position:relative; display: flex; flex-direction: column; gap: 12px; align-items: center; border-radius: 20px; border: 2px solid #eee; background: white; cursor: pointer; transition: all 0.2s;">
-                            <small style="position:absolute; top:10px; right:10px; background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; color: #666; border: 1px solid #ddd;">F3</small>
-                            <i data-lucide="credit-card" style="width: 32px; height: 32px; color: var(--primary);"></i>
-                            <span style="font-weight: 700;">Tarjeta</span>
+                        <button class="btn-payment" id="payTarjeta" style="padding: 20px; position:relative; display: flex; flex-direction: column; gap: 8px; align-items: center; border-radius: 18px; border: 2px solid #eee; background: white; cursor: pointer; transition: all 0.2s;">
+                            <small style="position:absolute; top:8px; right:10px; background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; color: #666; border: 1px solid #ddd;">F3</small>
+                            <i data-lucide="credit-card" style="width: 28px; height: 28px; color: var(--primary);"></i>
+                            <span style="font-weight: 700; font-size: 0.95rem;">Tarjeta</span>
                         </button>
-                        <button class="btn-payment" id="payTransferencia" style="padding: 24px; position:relative; display: flex; flex-direction: column; gap: 12px; align-items: center; border-radius: 20px; border: 2px solid #eee; background: white; cursor: pointer; transition: all 0.2s;">
-                            <small style="position:absolute; top:10px; right:10px; background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; color: #666; border: 1px solid #ddd;">F5</small>
-                            <i data-lucide="smartphone" style="width: 32px; height: 32px; color: var(--warning);"></i>
-                            <span style="font-weight: 700;">Transferencia</span>
+                        <button class="btn-payment" id="payTransferencia" style="padding: 20px; position:relative; display: flex; flex-direction: column; gap: 8px; align-items: center; border-radius: 18px; border: 2px solid #eee; background: white; cursor: pointer; transition: all 0.2s;">
+                            <small style="position:absolute; top:8px; right:10px; background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; color: #666; border: 1px solid #ddd;">F5</small>
+                            <i data-lucide="smartphone" style="width: 28px; height: 28px; color: var(--warning);"></i>
+                            <span style="font-weight: 700; font-size: 0.95rem;">Transferencia</span>
+                        </button>
+                        <button class="btn-payment" id="payMixto" style="padding: 20px; position:relative; display: flex; flex-direction: column; gap: 8px; align-items: center; border-radius: 18px; border: 2px solid var(--accent); background: rgba(226, 150, 93, 0.05); cursor: pointer; transition: all 0.2s;">
+                            <small style="position:absolute; top:8px; right:10px; background: rgba(226, 150, 93, 0.2); padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; color: var(--accent); border: 1px solid rgba(226, 150, 93, 0.3);">F6</small>
+                            <i data-lucide="layers" style="width: 28px; height: 28px; color: var(--accent);"></i>
+                            <span style="font-weight: 700; color: var(--primary); font-size: 0.95rem;">Pago Mixto</span>
                         </button>
                     </div>
                     <button class="btn-secondary" id="closeModal" style="margin-top: 24px; width: 100%; padding: 16px; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;">
@@ -2364,6 +2374,7 @@ class AromaticApp {
             document.getElementById('payTarjeta').onclick = () => processPayment('Tarjeta');
             document.getElementById('payTransferencia').onclick = () => processPayment('Transferencia');
             document.getElementById('payEfectivo').onclick = showCashPayment;
+            document.getElementById('payMixto').onclick = showMixedPayment;
 
             const redeemBtn = document.getElementById('redeemPointsBtn');
             if (redeemBtn) {
@@ -2395,6 +2406,187 @@ class AromaticApp {
                     showMainMethods();
                 };
             }
+        };
+
+        const showMixedPayment = () => {
+            finalTotal = totalOriginal - descuentoPuntos;
+            modalContent.innerHTML = `
+                <div class="mixed-payment-modal" style="width: 520px; padding: 10px;">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <h2 style="font-size: 1.8rem; margin: 0 0 4px 0; font-family: 'Playfair Display', serif; color: var(--primary);">Pago Mixto / Combinado</h2>
+                        <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">Divida el monto total entre diferentes métodos de pago</p>
+                    </div>
+
+                    <div style="background: #f8fafc; padding: 15px 20px; border-radius: 16px; border: 1px solid #e2e8f0; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <span style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Total a Cubrir</span>
+                            <div style="font-size: 1.8rem; font-weight: 800; color: var(--primary); font-family: 'Playfair Display', serif;">$${finalTotal.toFixed(2)}</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <span style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Pendiente</span>
+                            <div id="mixedRemaining" style="font-size: 1.8rem; font-weight: 800; color: #ef4444; font-family: 'Playfair Display', serif;">$${finalTotal.toFixed(2)}</div>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 20px; background: #e2e8f0; height: 8px; border-radius: 10px; overflow: hidden;">
+                        <div id="mixedProgressBar" style="height: 100%; width: 0%; background: var(--success); transition: width 0.3s ease;"></div>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px;">
+                        <!-- Efectivo -->
+                        <div style="background: white; border: 1.5px solid #e2e8f0; border-radius: 14px; padding: 14px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <label style="font-weight: 700; font-size: 0.9rem; color: #166534; display: flex; align-items: center; gap: 6px;">
+                                    <i data-lucide="banknote" style="width: 18px;"></i> Cuota en Efectivo ($)
+                                </label>
+                                <button type="button" class="btn-secondary" id="fillEfectivoBtn" style="padding: 4px 10px; font-size: 0.75rem; border-radius: 8px; font-weight: 700;">
+                                    Asignar Restante
+                                </button>
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="number" id="mixedEfectivo" placeholder="0.00" style="flex: 1; padding: 10px 14px; border-radius: 10px; border: 1px solid #cbd5e1; font-size: 1.1rem; font-weight: 700; outline: none;">
+                                <input type="number" id="mixedEfectivoRecibido" placeholder="Billete recibido (Opcional)" style="flex: 1.2; padding: 10px 14px; border-radius: 10px; border: 1px solid #cbd5e1; font-size: 0.9rem; outline: none;" title="Si el cliente entregó un billete mayor para su parte de efectivo">
+                            </div>
+                        </div>
+
+                        <!-- Tarjeta -->
+                        <div style="background: white; border: 1.5px solid #e2e8f0; border-radius: 14px; padding: 14px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <label style="font-weight: 700; font-size: 0.9rem; color: #1e40af; display: flex; align-items: center; gap: 6px;">
+                                    <i data-lucide="credit-card" style="width: 18px;"></i> Cuota en Tarjeta ($)
+                                </label>
+                                <button type="button" class="btn-secondary" id="fillTarjetaBtn" style="padding: 4px 10px; font-size: 0.75rem; border-radius: 8px; font-weight: 700;">
+                                    Asignar Restante
+                                </button>
+                            </div>
+                            <input type="number" id="mixedTarjeta" placeholder="0.00" style="width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid #cbd5e1; font-size: 1.1rem; font-weight: 700; outline: none;">
+                        </div>
+
+                        <!-- Transferencia -->
+                        <div style="background: white; border: 1.5px solid #e2e8f0; border-radius: 14px; padding: 14px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <label style="font-weight: 700; font-size: 0.9rem; color: #c2410c; display: flex; align-items: center; gap: 6px;">
+                                    <i data-lucide="smartphone" style="width: 18px;"></i> Cuota en Transferencia ($)
+                                </label>
+                                <button type="button" class="btn-secondary" id="fillTransferenciaBtn" style="padding: 4px 10px; font-size: 0.75rem; border-radius: 8px; font-weight: 700;">
+                                    Asignar Restante
+                                </button>
+                            </div>
+                            <input type="number" id="mixedTransferencia" placeholder="0.00" style="width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid #cbd5e1; font-size: 1.1rem; font-weight: 700; outline: none;">
+                        </div>
+                    </div>
+
+                    <div id="mixedChangeContainer" style="padding: 12px 16px; background: #f0fdf4; border-radius: 12px; border: 1px solid #bbf7d0; margin-bottom: 20px; display: none; justify-content: space-between; align-items: center;">
+                        <span style="color: #166534; font-weight: 700; font-size: 0.9rem;">Cambio a entregar (Efectivo):</span>
+                        <strong id="mixedChangeAmount" style="font-size: 1.4rem; color: #15803d; font-weight: 800;">$0.00</strong>
+                    </div>
+
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn-secondary" id="backFromMixed" style="flex: 1; padding: 16px; border-radius: 12px; font-weight: 600;">Atrás</button>
+                        <button class="btn-primary" id="confirmMixedPayment" style="flex: 2; padding: 16px; border-radius: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px;" disabled>
+                            <i data-lucide="check-circle"></i> Confirmar Pago Mixto
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            const efecInput = document.getElementById('mixedEfectivo');
+            const efecRecibidoInput = document.getElementById('mixedEfectivoRecibido');
+            const tarjInput = document.getElementById('mixedTarjeta');
+            const transInput = document.getElementById('mixedTransferencia');
+
+            const fillEfecBtn = document.getElementById('fillEfectivoBtn');
+            const fillTarjBtn = document.getElementById('fillTarjetaBtn');
+            const fillTransBtn = document.getElementById('fillTransferenciaBtn');
+
+            const remainingEl = document.getElementById('mixedRemaining');
+            const progressBar = document.getElementById('mixedProgressBar');
+            const confirmBtn = document.getElementById('confirmMixedPayment');
+            const changeBox = document.getElementById('mixedChangeContainer');
+            const changeEl = document.getElementById('mixedChangeAmount');
+
+            const updateMixedTotals = () => {
+                const efec = Math.max(0, parseFloat(efecInput.value) || 0);
+                const tarj = Math.max(0, parseFloat(tarjInput.value) || 0);
+                const trans = Math.max(0, parseFloat(transInput.value) || 0);
+                const efecRecibido = Math.max(0, parseFloat(efecRecibidoInput.value) || 0);
+
+                const totalCubierto = efec + tarj + trans;
+                const restante = finalTotal - totalCubierto;
+
+                const percent = Math.min(100, Math.max(0, (totalCubierto / finalTotal) * 100));
+                progressBar.style.width = `${percent}%`;
+
+                if (restante <= 0.01) {
+                    remainingEl.textContent = '$0.00';
+                    remainingEl.style.color = '#16a34a';
+                    confirmBtn.disabled = false;
+                } else {
+                    remainingEl.textContent = `$${restante.toFixed(2)}`;
+                    remainingEl.style.color = '#ef4444';
+                    confirmBtn.disabled = true;
+                }
+
+                // Calculate change for cash portion if user handed a larger bill
+                let cambioEfectivo = 0;
+                if (efecRecibido > efec && efec > 0) {
+                    cambioEfectivo = efecRecibido - efec;
+                }
+
+                if (cambioEfectivo > 0) {
+                    changeEl.textContent = `$${cambioEfectivo.toFixed(2)}`;
+                    changeBox.style.display = 'flex';
+                } else {
+                    changeBox.style.display = 'none';
+                }
+            };
+
+            const getRemainingForField = (currentFieldInput) => {
+                const efec = currentFieldInput === efecInput ? 0 : (parseFloat(efecInput.value) || 0);
+                const tarj = currentFieldInput === tarjInput ? 0 : (parseFloat(tarjInput.value) || 0);
+                const trans = currentFieldInput === transInput ? 0 : (parseFloat(transInput.value) || 0);
+                return Math.max(0, finalTotal - (efec + tarj + trans));
+            };
+
+            fillEfecBtn.onclick = () => {
+                const rem = getRemainingForField(efecInput);
+                efecInput.value = rem.toFixed(2);
+                updateMixedTotals();
+            };
+            fillTarjBtn.onclick = () => {
+                const rem = getRemainingForField(tarjInput);
+                tarjInput.value = rem.toFixed(2);
+                updateMixedTotals();
+            };
+            fillTransBtn.onclick = () => {
+                const rem = getRemainingForField(transInput);
+                transInput.value = rem.toFixed(2);
+                updateMixedTotals();
+            };
+
+            efecInput.oninput = updateMixedTotals;
+            efecRecibidoInput.oninput = updateMixedTotals;
+            tarjInput.oninput = updateMixedTotals;
+            transInput.oninput = updateMixedTotals;
+
+            document.getElementById('backFromMixed').onclick = showMainMethods;
+            confirmBtn.onclick = () => {
+                const efec = Math.max(0, parseFloat(efecInput.value) || 0);
+                const tarj = Math.max(0, parseFloat(tarjInput.value) || 0);
+                const trans = Math.max(0, parseFloat(transInput.value) || 0);
+                const efecRecibido = Math.max(0, parseFloat(efecRecibidoInput.value) || 0);
+
+                const desglose = {
+                    efectivo: efec,
+                    tarjeta: tarj,
+                    transferencia: trans
+                };
+
+                const totalReceived = (efecRecibido > efec ? efecRecibido : efec) + tarj + trans;
+                processPayment('Mixto', totalReceived, desglose, efecRecibido);
+            };
         };
 
         const showCashPayment = () => {
@@ -2455,8 +2647,30 @@ class AromaticApp {
             };
         };
 
-        const processPayment = async (method, received = null) => {
-            const change = received ? received - finalTotal : 0;
+        const processPayment = async (method, received = null, mixedDesglose = null, efecRecibido = null) => {
+            let change = 0;
+            let desglose = { efectivo: 0, tarjeta: 0, transferencia: 0 };
+
+            if (method === 'Mixto' && mixedDesglose) {
+                desglose = {
+                    efectivo: mixedDesglose.efectivo || 0,
+                    tarjeta: mixedDesglose.tarjeta || 0,
+                    transferencia: mixedDesglose.transferencia || 0
+                };
+                if (efecRecibido && efecRecibido > desglose.efectivo) {
+                    change = efecRecibido - desglose.efectivo;
+                }
+            } else {
+                change = received ? Math.max(0, received - finalTotal) : 0;
+                if (method === 'Efectivo') {
+                    desglose = { efectivo: finalTotal, tarjeta: 0, transferencia: 0 };
+                } else if (method === 'Tarjeta') {
+                    desglose = { efectivo: 0, tarjeta: finalTotal, transferencia: 0 };
+                } else if (method === 'Transferencia') {
+                    desglose = { efectivo: 0, tarjeta: 0, transferencia: finalTotal };
+                }
+            }
+
             const currentTicket = this.tickets[this.activeTicketIdx];
             const fidel = settings.fidelizacion;
 
@@ -2506,8 +2720,9 @@ class AromaticApp {
                 puntosPrevios: puntosPrevios,
                 puntosTotales: puntosNuevos,
                 metodoPago: method,
+                desglosePago: desglose,
                 fecha: new Date().toISOString(),
-                pagadoCon: received,
+                pagadoCon: received || finalTotal,
                 cambio: change,
                 cliente: currentTicket.cliente ? {
                     id: currentTicket.cliente.id,
