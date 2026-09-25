@@ -550,7 +550,7 @@ body {
 
     .sidebar {
         width: 100vw !important;
-        height: 65px;
+        height: 75px;
         position: fixed;
         bottom: 0;
         left: 0;
@@ -558,7 +558,13 @@ body {
         padding: 5px 0;
         z-index: 1000;
         border-right: none;
+        background: rgba(44, 30, 18, 0.95);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-top-left-radius: 24px;
+        border-top-right-radius: 24px;
         border-top: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.2);
     }
 
     .sidebar:hover,
@@ -573,26 +579,52 @@ body {
 
     .nav-links {
         flex-direction: row;
-        justify-content: space-around;
+        justify-content: flex-start;
+        align-items: center;
         width: 100%;
         overflow-x: auto;
-        padding: 0 10px;
+        padding: 0 15px;
+        gap: 12px;
+        flex-wrap: nowrap;
+        scroll-behavior: smooth;
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE/Edge */
+    }
+    
+    .nav-links::-webkit-scrollbar {
+        display: none; /* Safari/Chrome */
     }
 
     .nav-links li {
         flex-direction: column;
-        padding: 5px;
-        gap: 4px;
-        min-width: 60px;
+        padding: 8px 12px;
+        gap: 5px;
+        min-width: 68px;
+        flex-shrink: 0;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.05);
+        transition: all 0.3s ease;
+        margin: 5px 0;
+    }
+
+    .nav-links li.active {
+        background: var(--accent);
+        color: white;
+        box-shadow: 0 4px 12px rgba(226, 150, 93, 0.4);
+        transform: translateY(-2px);
     }
 
     .nav-links li i {
         margin: 0;
+        width: 20px;
+        height: 20px;
     }
 
     .nav-links li span {
         display: block !important;
-        font-size: 0.6rem;
+        font-size: 0.65rem;
+        font-weight: 600;
+        letter-spacing: 0.3px;
     }
 
     .main-content {
