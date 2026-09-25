@@ -270,6 +270,16 @@ class AromaticApp {
         safeClick('selectCustomerBtn', () => this.showCustomerSelector());
         safeClick('removeCustomerBtn', () => this.removeCustomerFromTicket());
         safeClick('userProfileBtn', () => this.showUserSwitcher());
+        
+        // Mobile Cart Events
+        safeClick('mobileCartFab', () => {
+            const panel = document.getElementById('posCartPanel');
+            if(panel) panel.classList.add('active');
+        });
+        safeClick('closeCartMobileBtn', () => {
+            const panel = document.getElementById('posCartPanel');
+            if(panel) panel.classList.remove('active');
+        });
 
         // History Search
         const histSearch = document.getElementById('historySearch');
@@ -2190,6 +2200,12 @@ class AromaticApp {
         this.tickets[this.activeTicketIdx].totalDescuento = totalDiscount;
         this.tickets[this.activeTicketIdx].promocionesAplicadas = activePromos;
 
+        // Update Mobile FAB Badge
+        const mobileBadge = document.getElementById('mobileCartBadge');
+        if (mobileBadge) {
+            mobileBadge.textContent = this.cart.length;
+            mobileBadge.style.display = this.cart.length > 0 ? 'flex' : 'none';
+        }
 
         // --- Table Logic Integration ---
         const currentTicket = this.tickets[this.activeTicketIdx];
@@ -3189,8 +3205,10 @@ class AromaticApp {
         this.tickets[ticketIdx].numeroOrdenDia = null;
 
         // Marcar mesa como ocupada en DB
+        const currentUser = db.getCurrentUser();
         await db.updateDocument('mesas', mesa.id, {
             estado: 'ocupada',
+            mesero: currentUser ? currentUser.nombre : 'Mesero',
             orden: {
                 idOrden: orderId,
                 fechaInicio: new Date().toISOString(),

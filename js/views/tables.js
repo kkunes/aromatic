@@ -713,13 +713,14 @@ const tablesView = {
             const total = mesa.orden ? mesa.orden.total : 0;
             const itemsCount = mesa.orden ? mesa.orden.items.length : 0;
             const tiempo = isOccupied ? this.getTimeElapsed(mesa.orden.fechaInicio) : '';
+            const lockText = isOccupied && mesa.mesero ? `🔒 ${mesa.mesero}` : (isOccupied ? 'Ocupada' : 'Libre');
 
             return `
                 <div class="ptg-card ${isOccupied ? 'ptg-occupied' : ''}" onclick="tablesView.handleTableClick('${mesa.id}')" style="animation: fadeInUp 0.4s ease ${idx * 0.04}s both;">
                     <div class="ptg-card-header">
                         <div class="ptg-card-identity">
                             <div class="ptg-card-icon">
-                                <i data-lucide="${isOccupied ? 'users' : 'utensils'}" style="width: 22px; height: 22px;"></i>
+                                <i data-lucide="${isOccupied ? 'lock' : 'utensils'}" style="width: 22px; height: 22px;"></i>
                             </div>
                             <div>
                                 <div class="ptg-card-name">${mesa.nombre}</div>
@@ -728,7 +729,7 @@ const tablesView = {
                         </div>
                         <div class="ptg-card-status ${isOccupied ? 'ptg-status-occ' : 'ptg-status-free'}">
                             <span style="width: 6px; height: 6px; border-radius: 50%; background: currentColor;"></span>
-                            ${isOccupied ? 'Ocupada' : 'Libre'}
+                            ${lockText}
                         </div>
                     </div>
 
@@ -1065,7 +1066,9 @@ const tablesView = {
                      ${onclickAttr} ${onmousedownAttr}>
                     
                     <div class="map-table-header">
-                        <span class="map-table-name" title="${mesa.nombre}">${mesa.nombre}</span>
+                        <span class="map-table-name" title="${isOccupied && mesa.mesero ? 'Ocupada por ' + mesa.mesero : mesa.nombre}">
+                            ${isOccupied && mesa.mesero ? '🔒 ' + mesa.mesero : mesa.nombre}
+                        </span>
                         <div class="status-dot ${isOccupied ? 'pulse-red' : 'green'}"></div>
                     </div>
                     

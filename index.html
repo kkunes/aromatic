@@ -135,12 +135,21 @@
             <section id="view-container" class="view-container">
                 <!-- Views will be injected here -->
             </section>
+            
+            <!-- Mobile Cart FAB -->
+            <button id="mobileCartFab" class="mobile-cart-fab" style="display: none;">
+                <i data-lucide="shopping-cart"></i>
+                <span class="badge" id="mobileCartBadge">0</span>
+            </button>
         </main>
 
         <!-- Right Side Panel (Cart for POS) -->
         <aside class="right-panel" id="posCartPanel">
             <div class="panel-tabs"
-                style="display: flex; background: #f0f0f0; padding: 5px; border-bottom: 1px solid #ddd;">
+                style="display: flex; background: #f0f0f0; padding: 5px; border-bottom: 1px solid #ddd; position: relative;">
+                <button class="mobile-close-cart btn-icon-small" id="closeCartMobileBtn" style="position: absolute; right: 5px; top: 10px; display: none; background: rgba(255,0,0,0.1); color: red; border-radius: 50%; z-index: 10;">
+                    <i data-lucide="x"></i>
+                </button>
                 <button class="panel-tab-btn active" id="tabCart"
                     style="flex: 1; padding: 10px; border: none; background: none; cursor: pointer; font-weight: 600; border-radius: 8px;">🛒
                     Orden</button>

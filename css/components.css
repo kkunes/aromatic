@@ -1098,3 +1098,31 @@ input:checked+.slider:before {
     transform: scale(1.1);
     box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
 }
+
+/* Mobile Product Grid Optimizations */
+@media (max-width: 768px) {
+    .product-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 12px;
+        padding-bottom: 20px;
+    }
+
+    .product-card {
+        min-height: 200px;
+        padding: 12px;
+    }
+
+    .product-image {
+        width: 100px;
+        height: 100px;
+        margin-bottom: 12px;
+    }
+
+    .product-info h4 {
+        font-size: 1.1rem;
+    }
+
+    .product-info p {
+        font-size: 1rem;
+    }
+}
