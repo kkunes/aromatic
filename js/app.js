@@ -245,6 +245,17 @@ class AromaticApp {
         };
 
         // Navigation
+        const navLinksList = document.querySelector('.nav-links');
+        if (navLinksList) {
+            // Horizontal wheel scroll on mobile / desktop emulation
+            navLinksList.addEventListener('wheel', (e) => {
+                if (window.innerWidth <= 768 && e.deltaY !== 0) {
+                    e.preventDefault();
+                    navLinksList.scrollLeft += e.deltaY;
+                }
+            }, { passive: false });
+        }
+
         document.querySelectorAll('.nav-links li').forEach(li => {
             li.addEventListener('click', () => {
                 const view = li.getAttribute('data-view');
@@ -936,7 +947,13 @@ class AromaticApp {
         const activeHighlight = highlightMap[viewId] || viewId;
 
         document.querySelectorAll('.nav-links li').forEach(li => {
-            li.classList.toggle('active', li.getAttribute('data-view') === activeHighlight);
+            const isActive = li.getAttribute('data-view') === activeHighlight;
+            li.classList.toggle('active', isActive);
+            if (isActive && window.innerWidth <= 768) {
+                setTimeout(() => {
+                    li.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }, 50);
+            }
         });
 
         // Search Bar Visibility Logic
