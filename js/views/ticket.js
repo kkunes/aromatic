@@ -101,6 +101,24 @@ const ticketView = {
                 }
             }
 
+            if (item.isCombo) {
+                return `
+                    <tr style="color: #000;">
+                        <td style="vertical-align: top; padding: 6px 0; color: #000; font-weight: bold;">${item.quantity}</td>
+                        <td style="padding: 6px 0; color: #000;">
+                            <div style="font-weight: bold;">[COMBO] ${item.nombre}</div>
+                            ${(item.comboItems || []).map(ci => `
+                                <div style="font-size: 0.85em; padding-left: 8px; color: #000;">
+                                    • ${ci.nombre} ${ci.precioExtra > 0 ? `(+$${ci.precioExtra.toFixed(2)})` : ''}
+                                    ${ci.nota ? `<span style="font-style: italic; color: #444;">- ${ci.nota}</span>` : ''}
+                                </div>
+                            `).join('')}
+                        </td>
+                        <td style="text-align: right; vertical-align: top; padding: 6px 0; color: #000; font-weight: bold;">$${itemTotal.toFixed(2)}</td>
+                    </tr>
+                `;
+            }
+
             return `
                                     <tr style="color: #000;">
                                         <td style="vertical-align: top; padding: 6px 0; color: #000;">${item.quantity}</td>
@@ -306,6 +324,23 @@ const ticketView = {
                 if (omittedNames.length > 0) {
                     omittedHTML = `<div style="font-weight: bold; margin-top: 2px; font-size: 0.95em;">⚠️ ${omittedNames.join(', ')}</div>`;
                 }
+            }
+
+            if (item.isCombo) {
+                return `
+                    <tr style="color: #000; border-bottom: 2px dashed #000;">
+                        <td style="vertical-align: top; padding: 10px 0; width: 30px; font-size: 1.3em; font-weight: 900; color: #000;">${item.quantity}x</td>
+                        <td style="padding: 10px 0 10px 10px; color: #000;">
+                            <div style="font-weight: 900; font-size: 1.1em; text-transform: uppercase; background: #000; color: #fff; padding: 2px 6px; display: inline-block;">COMBO: ${item.nombre}</div>
+                            ${(item.comboItems || []).map(ci => `
+                                <div style="padding-left: 10px; font-size: 1em; font-weight: 700; margin-top: 4px;">
+                                    ➔ ${ci.nombre}
+                                    ${ci.nota ? `<div style="font-size: 0.85em; font-weight: 800; background: #eee; color: #000; padding: 2px 6px; display: inline-block; margin-top: 2px; border: 1px solid #000;">📝 NOTA: ${ci.nota}</div>` : ''}
+                                </div>
+                            `).join('')}
+                        </td>
+                    </tr>
+                `;
             }
 
             return `

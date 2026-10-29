@@ -1210,13 +1210,18 @@ class AromaticApp {
         if (typeof index === 'number' && cart[index]) {
             targetItem = cart[index];
         } else if (product) {
-            // Se llamó desde el grid: buscar una entrada "limpia" (sin notas ni extras)
-            targetItem = cart.find(item =>
-                item.id === product.id &&
-                (!item.extras || item.extras.length === 0) &&
-                (!item.omitted || item.omitted.length === 0) &&
-                (!item.nota)
-            );
+            // Se llamó desde el grid: buscar una entrada "limpia" (sin notas ni extras ni combos)
+            if (product.isCombo) {
+                targetItem = null;
+            } else {
+                targetItem = cart.find(item =>
+                    !item.isCombo &&
+                    item.id === product.id &&
+                    (!item.extras || item.extras.length === 0) &&
+                    (!item.omitted || item.omitted.length === 0) &&
+                    (!item.nota)
+                );
+            }
         }
 
         if (!targetItem && !product) return;
@@ -1248,95 +1253,150 @@ class AromaticApp {
         this.updateCartUI();
     }
 
-    async validateStock(itemToValidate, activeItemIndex = null) {
-        const productId = itemToValidate.id;
+    async validateStock(itemToValidate, activeItemIndex = null, options = {}) {
         const productos = await db.getCollection('productos');
-        const targetProd = productos.find(p => p.id === productId);
-        const hasRecipe = (targetProd && targetProd.insumos && targetProd.insumos.length > 0) || (itemToValidate.insumos && itemToValidate.insumos.length > 0);
-
-        if (!hasRecipe) return true;
-
         const allInsumos = await db.getCollection('insumos');
         const allProducts = productos;
 
-        // 1. Calculate how much of each supply is committed in OTHER tickets and OTHER items of current ticket
         const consumptionMap = {};
 
+        // Helper to add committed supply demand for any cart item
+        const addDemand = (cartItem, qty) => {
+            if (qty <= 0) return;
+
+            // Handle multi-component combos in cart
+            if (cartItem.isCombo && cartItem.comboItems) {
+                cartItem.comboItems.forEach(sub => {
+                    const subProd = allProducts.find(p => p.id === sub.idProducto || p.nombre.toLowerCase() === (sub.nombre || '').toLowerCase());
+                    const subRecipe = (subProd && subProd.insumos) ? subProd.insumos : (sub.insumos || []);
+                    subRecipe.forEach(recipeItem => {
+                        if (sub.omitted && sub.omitted.includes(recipeItem.idInsumo)) return;
+                        consumptionMap[recipeItem.idInsumo] = (consumptionMap[recipeItem.idInsumo] || 0) + (recipeItem.cantidad * (sub.quantity || 1) * qty);
+                    });
+                });
+                return;
+            }
+
+            const prod = allProducts.find(p => p.id === cartItem.id || p.nombre.toLowerCase() === (cartItem.nombre || '').toLowerCase());
+            if (prod && prod.insumos) {
+                prod.insumos.forEach(recipeItem => {
+                    if (cartItem.omitted && cartItem.omitted.includes(recipeItem.idInsumo)) return;
+                    consumptionMap[recipeItem.idInsumo] = (consumptionMap[recipeItem.idInsumo] || 0) + (recipeItem.cantidad * qty);
+                });
+            }
+            if (cartItem.extras && cartItem.extras.length > 0) {
+                cartItem.extras.forEach(extra => {
+                    const prodRef = allProducts.find(p => p.id === cartItem.id || p.nombre.toLowerCase() === (cartItem.nombre || '').toLowerCase());
+                    const recipeEntry = prodRef?.insumos?.find(ri => ri.idInsumo === extra.idInsumo);
+                    if (recipeEntry) {
+                        consumptionMap[extra.idInsumo] = (consumptionMap[extra.idInsumo] || 0) + (recipeEntry.cantidad * qty);
+                    }
+                });
+            }
+        };
+
+        // 1. Calculate how much of each supply is committed in OTHER tickets and OTHER items of current ticket
         this.tickets.forEach((ticket, tIdx) => {
             ticket.cart.forEach((cartItem, cIdx) => {
-                // Skip the exact item we are currently validating/incrementing
-                if (tIdx === this.activeTicketIdx && cIdx === activeItemIndex) return;
+                const isCurrentTicket = (tIdx === this.activeTicketIdx);
+                const isTargetItem = isCurrentTicket && (cIdx === activeItemIndex);
 
-                const prod = allProducts.find(p => p.id === cartItem.id);
-                if (prod && prod.insumos) {
-                    prod.insumos.forEach(recipeItem => {
-                        // Skip if omitted
-                        if (cartItem.omitted && cartItem.omitted.includes(recipeItem.idInsumo)) return;
-
-                        consumptionMap[recipeItem.idInsumo] = (consumptionMap[recipeItem.idInsumo] || 0) + (recipeItem.cantidad * cartItem.quantity);
-                    });
-                }
-                // Also count extras consumption
-                if (cartItem.extras && cartItem.extras.length > 0) {
-                    cartItem.extras.forEach(extra => {
-                        const prodRef = allProducts.find(p => p.id === cartItem.id);
-                        const recipeEntry = prodRef?.insumos?.find(ri => ri.idInsumo === extra.idInsumo);
-                        if (recipeEntry) {
-                            consumptionMap[extra.idInsumo] = (consumptionMap[extra.idInsumo] || 0) + (recipeEntry.cantidad * cartItem.quantity);
+                if (isTargetItem) {
+                    if (options && options.isUpsell) {
+                        // In an upsell: 1 unit is converted into the combo.
+                        // If quantity > 1, the remaining units (quantity - 1) stay in the cart and must still be counted.
+                        // If quantity <= 1, it is completely replaced by the combo (0 remaining demand from standalone).
+                        if (cartItem.quantity > 1) {
+                            addDemand(cartItem, cartItem.quantity - 1);
                         }
-                    });
+                    }
+                    // For normal replacement/edit or quantity <= 1: skip completely, as prospective state replaces it.
+                    return;
                 }
+
+                addDemand(cartItem, cartItem.quantity);
             });
         });
 
         // 2. Add demand of the item being validated (prospective state)
-        const validationRecipe = (targetProd && targetProd.insumos) ? targetProd.insumos : (itemToValidate.insumos || []);
-        
-        validationRecipe.forEach(recipeItem => {
-            if (itemToValidate.omitted && itemToValidate.omitted.includes(recipeItem.idInsumo)) return;
-            consumptionMap[recipeItem.idInsumo] = (consumptionMap[recipeItem.idInsumo] || 0) + (recipeItem.cantidad * itemToValidate.quantity);
-        });
-        
-        if (targetProd && itemToValidate.extras && itemToValidate.extras.length > 0) {
-            itemToValidate.extras.forEach(extra => {
-                const recipeEntry = targetProd.insumos.find(ri => ri.idInsumo === extra.idInsumo);
-                if (recipeEntry) {
-                    consumptionMap[extra.idInsumo] = (consumptionMap[extra.idInsumo] || 0) + (recipeEntry.cantidad * itemToValidate.quantity);
+        const relevantInsumoIds = new Set();
+        const validationRecipes = [];
+
+        if (itemToValidate.isCombo && itemToValidate.comboItems) {
+            // For a combo, sum demand across all constituent sub-items in one unified pass
+            for (const subItem of itemToValidate.comboItems) {
+                const subProd = allProducts.find(p => p.id === subItem.idProducto || p.nombre.toLowerCase() === (subItem.nombre || '').toLowerCase());
+                const subRecipe = (subProd && subProd.insumos) ? subProd.insumos : (subItem.insumos || []);
+                const subQty = (subItem.quantity || 1) * (itemToValidate.quantity || 1);
+
+                subRecipe.forEach(recipeItem => {
+                    if (subItem.omitted && subItem.omitted.includes(recipeItem.idInsumo)) return;
+                    relevantInsumoIds.add(recipeItem.idInsumo);
+                    validationRecipes.push({ idInsumo: recipeItem.idInsumo, cantidad: recipeItem.cantidad * (subItem.quantity || 1) });
+                    consumptionMap[recipeItem.idInsumo] = (consumptionMap[recipeItem.idInsumo] || 0) + (recipeItem.cantidad * subQty);
+                });
+
+                if (subItem.extras && subItem.extras.length > 0) {
+                    subItem.extras.forEach(extra => {
+                        const recipeEntry = subProd?.insumos?.find(ri => ri.idInsumo === extra.idInsumo);
+                        if (recipeEntry) {
+                            relevantInsumoIds.add(extra.idInsumo);
+                            consumptionMap[extra.idInsumo] = (consumptionMap[extra.idInsumo] || 0) + (recipeEntry.cantidad * subQty);
+                        }
+                    });
                 }
+            }
+        } else {
+            // Standalone product
+            const productId = itemToValidate.id;
+            const targetProd = allProducts.find(p => p.id === productId || p.nombre.toLowerCase() === (itemToValidate.nombre || '').toLowerCase());
+            const validationRecipe = (targetProd && targetProd.insumos) ? targetProd.insumos : (itemToValidate.insumos || []);
+
+            validationRecipe.forEach(recipeItem => {
+                if (itemToValidate.omitted && itemToValidate.omitted.includes(recipeItem.idInsumo)) return;
+                relevantInsumoIds.add(recipeItem.idInsumo);
+                validationRecipes.push({ idInsumo: recipeItem.idInsumo, cantidad: recipeItem.cantidad });
+                consumptionMap[recipeItem.idInsumo] = (consumptionMap[recipeItem.idInsumo] || 0) + (recipeItem.cantidad * itemToValidate.quantity);
             });
+
+            if (targetProd && itemToValidate.extras && itemToValidate.extras.length > 0) {
+                itemToValidate.extras.forEach(extra => {
+                    const recipeEntry = targetProd.insumos.find(ri => ri.idInsumo === extra.idInsumo);
+                    if (recipeEntry) {
+                        relevantInsumoIds.add(extra.idInsumo);
+                        consumptionMap[extra.idInsumo] = (consumptionMap[extra.idInsumo] || 0) + (recipeEntry.cantidad * itemToValidate.quantity);
+                    }
+                });
+            }
         }
+
+        // If no recipe involved, item is always in stock
+        if (relevantInsumoIds.size === 0) return true;
 
         // 3. Final check against actual stock
         let stockInsuficiente = [];
-        for (const insumoId in consumptionMap) {
+        for (const insumoId of relevantInsumoIds) {
             const insumo = allInsumos.find(i => i.id === insumoId);
             if (insumo) {
                 if (insumo.stock < consumptionMap[insumoId]) {
-                    // Only alert if the product being added actually uses this insumo
-                    const usesThis = validationRecipe.some(ri => ri.idInsumo === insumoId) ||
-                        (itemToValidate.extras && itemToValidate.extras.some(e => e.idInsumo === insumoId));
+                    const requiredByItem = validationRecipes
+                        .filter(r => r.idInsumo === insumoId)
+                        .reduce((sum, r) => sum + r.cantidad, 0) * (itemToValidate.quantity || 1);
 
-                    if (usesThis) {
-                        stockInsuficiente.push({
-                            nombre: insumo.nombre,
-                            disponible: Math.max(0, insumo.stock - (consumptionMap[insumoId] - (recipeItemAmount(insumoId) * itemToValidate.quantity))),
-                            requerido: consumptionMap[insumoId],
-                            itemRequerido: recipeItemAmount(insumoId) * itemToValidate.quantity,
-                            unidad: insumo.unidad
-                        });
-                    }
+                    const otherDemand = consumptionMap[insumoId] - requiredByItem;
+                    stockInsuficiente.push({
+                        nombre: insumo.nombre,
+                        disponible: Math.max(0, insumo.stock - otherDemand),
+                        requerido: consumptionMap[insumoId],
+                        itemRequerido: requiredByItem,
+                        unidad: insumo.unidad || 'uds'
+                    });
                 }
             }
         }
 
-        function recipeItemAmount(insId) {
-            const r = validationRecipe.find(ri => ri.idInsumo === insId);
-            return r ? r.cantidad : 0;
-        }
-
         if (stockInsuficiente.length > 0) {
-            // Simplified alert for POS consistency
-            this.showStockAlert(targetProd.nombre, stockInsuficiente);
+            this.showStockAlert(itemToValidate.nombre, stockInsuficiente);
             return false;
         }
 
@@ -1447,58 +1507,153 @@ class AromaticApp {
         // Load insumos to display omitted ingredients
         const allInsumos = await db.getCollection('insumos');
 
-        container.innerHTML = cart.map((item, idx) => `
-            <div class="swipe-container" data-index="${idx}" 
-                 style="position: relative; overflow: hidden; border-radius: 16px; margin-bottom: 8px;">
-                <div class="swipe-action left-action" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: #22c55e; color: white; display: flex; align-items: center; padding-left: 20px; transition: opacity 0.3s; opacity: 0; border-radius: 16px;">
-                    <i data-lucide="plus" style="width: 24px; height: 24px;"></i>
-                    <span style="font-weight: 800; margin-left: 10px;">AÑADIR</span>
-                </div>
-                <div class="swipe-action right-action" style="position: absolute; right: 0; top: 0; width: 100%; height: 100%; background: #e11d48; color: white; display: flex; align-items: center; justify-content: flex-end; padding-right: 20px; transition: opacity 0.3s; opacity: 0; border-radius: 16px;">
-                    <span style="font-weight: 800; margin-right: 10px;">ELIMINAR</span>
-                    <i data-lucide="trash-2" style="width: 24px; height: 24px;"></i>
-                </div>
-                <div class="cart-item" style="position: relative; z-index: 2; margin-bottom: 0; transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);">
-                    <div class="cart-item-info">
-                        <div class="cart-item-header">
-                            <span class="cart-item-name">${item.nombre}</span>
-                            <button class="btn-edit-item" onclick="app.showCustomizeModal(${idx})" title="Personalizar (Notas/Extras)">
-                                <i data-lucide="pencil" style="width: 18px; height: 18px;"></i>
-                            </button>
-                        </div>
-                        <span class="cart-item-price">$${item.precio.toFixed(2)} c/u</span>
-                        ${item.nota ? `<div class="cart-item-note"><i data-lucide="message-square" style="width: 12px; height: 12px;"></i> ${item.nota}</div>` : ''}
-                        ${item.omitted && item.omitted.length > 0 ? `
-                            <div class="cart-item-extras" style="margin-top: 4px;">
-                                ${item.omitted.map(id => {
-            const ins = allInsumos.find(i => i.id === id);
-            return `<span style="background: #fff1f2; color: #991b1b; border: 1px solid #fecaca;"><i data-lucide="minus" style="width: 10px; height: 10px; margin-right: 2px;"></i>Sin ${ins ? ins.nombre : 'ingrediente'}</span>`;
-        }).join('')}
+        // Check for Smart Auto-Combo Opportunity or Proactive Upsell
+        let suggestionHTML = '';
+        if (typeof combosView !== 'undefined') {
+            const opp = await combosView.findComboOpportunity(cart);
+            if (opp) {
+                suggestionHTML = combosView.renderOpportunityCard ? combosView.renderOpportunityCard(opp) : `
+                    <div class="smart-combo-suggestion-card fade-in">
+                        <div class="smart-combo-card-left">
+                            <div class="smart-combo-badge-sparkle">
+                                <i data-lucide="sparkles"></i>
                             </div>
-                        ` : ''}
-                        ${item.extras && item.extras.length > 0 ? `
-                            <div class="cart-item-extras">
-                                ${item.extras.map(e => `<span>${e.nombre}</span>`).join('')}
+                            <div class="smart-combo-info">
+                                <div class="smart-combo-title-row">
+                                    <span class="smart-combo-title">¡Oportunidad de Combo!</span>
+                                    <span class="smart-combo-savings-tag">Ahorra $${opp.savings.toFixed(2)}</span>
+                                </div>
+                                <div class="smart-combo-text">
+                                    Une <strong>${opp.items[0].nombre} + ${opp.items[1].nombre}</strong> en <strong>"${opp.combo.nombre}"</strong>.
+                                </div>
                             </div>
-                        ` : ''}
-                    </div>
-                    <div class="cart-item-controls">
-                        <div class="cart-item-total">
-                            $${((item.precio + (item.extras ? item.extras.reduce((s, e) => s + e.precio, 0) : 0)) * item.quantity).toFixed(2)}
                         </div>
-                        <div class="quantity-controls">
-                            <button class="qty-btn" onclick="app.removeFromCart(${idx})" title="Restar">
-                                <i data-lucide="minus" style="width: 14px; height: 14px;"></i>
-                            </button>
-                            <span style="font-weight: 700; min-width: 20px; text-align: center;">${item.quantity}</span>
-                            <button class="qty-btn" onclick="app.addToCart(null, ${idx})" title="Sumar">
-                                <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
-                            </button>
+                        <button class="btn-smart-combo-convert" onclick="combosView.convertItemsToCombo('${opp.combo.id}', ${opp.indices[0]}, ${opp.indices[1]})">
+                            <i data-lucide="zap"></i> Aplicar (-$${opp.savings.toFixed(0)})
+                        </button>
+                    </div>
+                `;
+            } else if (typeof combosView.findUpsellOpportunity === 'function') {
+                const upsell = await combosView.findUpsellOpportunity(cart);
+                if (upsell) {
+                    suggestionHTML = combosView.renderUpsellBanner(upsell);
+                }
+            }
+        }
+
+        const cartItemsHTML = cart.map((item, idx) => {
+            if (item.isCombo) {
+                return `
+                    <div class="swipe-container" data-index="${idx}" 
+                         style="position: relative; overflow: hidden; border-radius: 16px; margin-bottom: 8px;">
+                        <div class="swipe-action left-action" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: #22c55e; color: white; display: flex; align-items: center; padding-left: 20px; transition: opacity 0.3s; opacity: 0; border-radius: 16px;">
+                            <i data-lucide="plus" style="width: 24px; height: 24px;"></i>
+                            <span style="font-weight: 800; margin-left: 10px;">AÑADIR</span>
+                        </div>
+                        <div class="swipe-action right-action" style="position: absolute; right: 0; top: 0; width: 100%; height: 100%; background: #e11d48; color: white; display: flex; align-items: center; justify-content: flex-end; padding-right: 20px; transition: opacity 0.3s; opacity: 0; border-radius: 16px;">
+                            <span style="font-weight: 800; margin-right: 10px;">ELIMINAR</span>
+                            <i data-lucide="trash-2" style="width: 24px; height: 24px;"></i>
+                        </div>
+                        <div class="cart-item cart-combo-item" style="position: relative; z-index: 2; margin-bottom: 0;">
+                            <div class="cart-item-info">
+                                <div class="cart-item-header">
+                                    <div class="combo-cart-title-wrap">
+                                        <span class="cart-combo-badge-pill">
+                                            <i data-lucide="sparkles" style="width: 10px; height: 10px;"></i> COMBO
+                                        </span>
+                                        <span class="cart-item-name">${item.nombre}</span>
+                                    </div>
+                                    <button class="btn-edit-item" onclick="combosView.openBuilder('${item.comboId}', ${idx})" title="Editar componentes del combo" style="background: rgba(226,150,93,0.15); color: var(--accent);">
+                                        <i data-lucide="pencil" style="width: 16px; height: 16px;"></i>
+                                    </button>
+                                </div>
+                                <span class="cart-item-price" style="color: var(--accent); font-weight: 700;">$${item.precio.toFixed(2)} paquete</span>
+
+                                <div class="cart-combo-subitems-box">
+                                    ${(item.comboItems || []).map(ci => `
+                                        <div class="cart-combo-subitem-line">
+                                            <span class="subitem-bullet">➔</span>
+                                            <span class="subitem-name">${ci.nombre}</span>
+                                            ${ci.precioExtra > 0 ? `<span class="subitem-upgrade-tag">+$${ci.precioExtra.toFixed(2)}</span>` : ''}
+                                            ${ci.nota ? `<span class="subitem-note-tag">"${ci.nota}"</span>` : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                            <div class="cart-item-controls">
+                                <div class="cart-item-total">
+                                    $${(item.precio * item.quantity).toFixed(2)}
+                                </div>
+                                <div class="quantity-controls">
+                                    <button class="qty-btn" onclick="app.removeFromCart(${idx})" title="Restar">
+                                        <i data-lucide="minus" style="width: 14px; height: 14px;"></i>
+                                    </button>
+                                    <span style="font-weight: 700; min-width: 20px; text-align: center;">${item.quantity}</span>
+                                    <button class="qty-btn" onclick="app.addToCart(null, ${idx})" title="Sumar">
+                                        <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="swipe-container" data-index="${idx}" 
+                     style="position: relative; overflow: hidden; border-radius: 16px; margin-bottom: 8px;">
+                    <div class="swipe-action left-action" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: #22c55e; color: white; display: flex; align-items: center; padding-left: 20px; transition: opacity 0.3s; opacity: 0; border-radius: 16px;">
+                        <i data-lucide="plus" style="width: 24px; height: 24px;"></i>
+                        <span style="font-weight: 800; margin-left: 10px;">AÑADIR</span>
+                    </div>
+                    <div class="swipe-action right-action" style="position: absolute; right: 0; top: 0; width: 100%; height: 100%; background: #e11d48; color: white; display: flex; align-items: center; justify-content: flex-end; padding-right: 20px; transition: opacity 0.3s; opacity: 0; border-radius: 16px;">
+                        <span style="font-weight: 800; margin-right: 10px;">ELIMINAR</span>
+                        <i data-lucide="trash-2" style="width: 24px; height: 24px;"></i>
+                    </div>
+                    <div class="cart-item" style="position: relative; z-index: 2; margin-bottom: 0; transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);">
+                        <div class="cart-item-info">
+                            <div class="cart-item-header">
+                                <span class="cart-item-name">${item.nombre}</span>
+                                <button class="btn-edit-item" onclick="app.showCustomizeModal(${idx})" title="Personalizar (Notas/Extras)">
+                                    <i data-lucide="pencil" style="width: 18px; height: 18px;"></i>
+                                </button>
+                            </div>
+                            <span class="cart-item-price">$${item.precio.toFixed(2)} c/u</span>
+                            ${item.nota ? `<div class="cart-item-note"><i data-lucide="message-square" style="width: 12px; height: 12px;"></i> ${item.nota}</div>` : ''}
+                            ${item.omitted && item.omitted.length > 0 ? `
+                                <div class="cart-item-extras" style="margin-top: 4px;">
+                                    ${item.omitted.map(id => {
+                const ins = allInsumos.find(i => i.id === id);
+                return `<span style="background: #fff1f2; color: #991b1b; border: 1px solid #fecaca;"><i data-lucide="minus" style="width: 10px; height: 10px; margin-right: 2px;"></i>Sin ${ins ? ins.nombre : 'ingrediente'}</span>`;
+            }).join('')}
+                                </div>
+                            ` : ''}
+                            ${item.extras && item.extras.length > 0 ? `
+                                <div class="cart-item-extras">
+                                    ${item.extras.map(e => `<span>${e.nombre}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="cart-item-controls">
+                            <div class="cart-item-total">
+                                $${((item.precio + (item.extras ? item.extras.reduce((s, e) => s + e.precio, 0) : 0)) * item.quantity).toFixed(2)}
+                            </div>
+                            <div class="quantity-controls">
+                                <button class="qty-btn" onclick="app.removeFromCart(${idx})" title="Restar">
+                                    <i data-lucide="minus" style="width: 14px; height: 14px;"></i>
+                                </button>
+                                <span style="font-weight: 700; min-width: 20px; text-align: center;">${item.quantity}</span>
+                                <button class="qty-btn" onclick="app.addToCart(null, ${idx})" title="Sumar">
+                                    <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
+
+        container.innerHTML = suggestionHTML + cartItemsHTML;
 
         this.initCartSwipes();
 
@@ -3045,9 +3200,22 @@ class AromaticApp {
     }
 
     async updateStockFromRecipe(cartItem, itemQuantity, operation = 'subtract') {
+        // Multi-component Combo Stock Deduction & Restoration
+        if (cartItem.isCombo && cartItem.comboItems) {
+            for (const subItem of cartItem.comboItems) {
+                const subCartItem = {
+                    ...subItem,
+                    id: subItem.idProducto,
+                    quantity: (subItem.quantity || 1) * itemQuantity
+                };
+                await this.updateStockFromRecipe(subCartItem, subCartItem.quantity, operation);
+            }
+            return;
+        }
+
         const productId = cartItem.id;
         const productos = await db.getCollection('productos');
-        const product = productos.find(p => p.id === productId);
+        const product = productos.find(p => p.id === productId || p.nombre.toLowerCase() === (cartItem.nombre || '').toLowerCase());
 
         // Check for recipe: either from permanent product or dynamic recipe in the cart item itself
         const recipe = (product && product.insumos) ? product.insumos : (cartItem.insumos || []);
@@ -3541,6 +3709,11 @@ class AromaticApp {
 
     closeModal() {
         document.getElementById('modalContainer').classList.add('hidden');
+        if (typeof combosView !== 'undefined') {
+            combosView.upsellCartIndex = null;
+            combosView.editingIndex = null;
+            combosView.activeCombo = null;
+        }
     }
 }
 

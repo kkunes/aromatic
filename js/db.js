@@ -32,7 +32,17 @@ const db = {
             const transaction = db.transaction(['collections'], 'readonly');
             const store = transaction.objectStore('collections');
             const request = store.get(name);
-            request.onsuccess = () => resolve(request.result || []);
+            request.onsuccess = () => {
+                const result = request.result;
+                const defaults = this.getDefaults();
+                if ((!result || result.length === 0) && defaults && defaults[name]) {
+                    // Seed defaults into local DB
+                    this.setLocalCollection(name, defaults[name]);
+                    resolve(defaults[name]);
+                } else {
+                    resolve(result || []);
+                }
+            };
             request.onerror = () => resolve([]);
         });
     },
@@ -158,9 +168,34 @@ const db = {
         });
     },
 
+    async getActiveCombos() {
+        const allCombos = await this.getCollection('combos');
+        const now = new Date();
+        const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+        const currentTime = now.getHours() * 100 + now.getMinutes();
+
+        return (allCombos || []).filter(c => {
+            if (!c.activo) return false;
+            if (!c.horario || !c.horario.activo) return true;
+
+            // Day check
+            if (c.horario.dias && c.horario.dias.length > 0) {
+                if (!c.horario.dias.includes(currentDay) && !c.horario.dias.includes('todos')) return false;
+            }
+
+            // Time check (HHMM)
+            if (c.horario.horaInicio && c.horario.horaFin) {
+                const start = parseInt(c.horario.horaInicio.replace(':', ''));
+                const end = parseInt(c.horario.horaFin.replace(':', ''));
+                if (currentTime < start || currentTime > end) return false;
+            }
+
+            return true;
+        });
+    },
 
     async exportAllData() {
-        const collections = ['productos', 'insumos', 'categorias', 'ventas', 'clientes', 'mesas', 'mermas', 'usuarios', 'audit_logs', 'personalizados', 'mapa_elementos'];
+        const collections = ['productos', 'insumos', 'categorias', 'ventas', 'clientes', 'mesas', 'mermas', 'usuarios', 'audit_logs', 'personalizados', 'mapa_elementos', 'combos'];
         const data = {};
         for (const col of collections) {
             data[col] = await this.getCollection(col);
@@ -359,6 +394,133 @@ const db = {
                     horaFin: '18:00',
                     aplicaA: 'productos',
                     itemsIds: ['P1'] // Assuming Espresso or similar
+                }
+            ],
+            combos: [
+                {
+                    id: 'combo_desayuno',
+                    nombre: 'Combo Desayuno Aromatic',
+                    descripcion: 'El preferido de las mañanas: 1 Bebida a tu gusto + 1 Repostería horneada con precio especial.',
+                    precioBase: 85,
+                    categoria: 'Combos',
+                    imagen: 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=400&h=400&fit=crop',
+                    activo: true,
+                    ahorroEstimado: 18,
+                    horario: {
+                        activo: false,
+                        horaInicio: '07:00',
+                        horaFin: '13:00',
+                        dias: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+                    },
+                    grupos: [
+                        {
+                            id: 'g_bebida',
+                            titulo: 'Paso 1: Elige tu Bebida Caliente',
+                            icono: 'coffee',
+                            cantidad: 1,
+                            requerido: true,
+                            categoriaFiltro: 'Café',
+                            opciones: [
+                                { idProducto: 'p_cappuccino', nombre: 'Cappuccino', precioExtra: 0, default: true },
+                                { idProducto: 'p_espresso', nombre: 'Espresso', precioExtra: 0, default: false },
+                                { idProducto: 'p_latte', nombre: 'Latte Art', precioExtra: 10, default: false },
+                                { idProducto: 'p_matcha', nombre: 'Matcha Latte', precioExtra: 15, default: false }
+                            ]
+                        },
+                        {
+                            id: 'g_reposteria',
+                            titulo: 'Paso 2: Elige tu Repostería',
+                            icono: 'croissant',
+                            cantidad: 1,
+                            requerido: true,
+                            categoriaFiltro: 'Repostería',
+                            opciones: [
+                                { idProducto: 'p_croissant', nombre: 'Croissant', precioExtra: 0, default: true },
+                                { idProducto: 'p_muffin', nombre: 'Muffin Arándano', precioExtra: 0, default: false }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: 'combo_merienda',
+                    nombre: 'Combo Dulce Merienda',
+                    descripcion: 'Disfruta la tarde con tu café favorito y un muffin de arándano o croissant con hojaldre artesanal.',
+                    precioBase: 78,
+                    categoria: 'Combos',
+                    imagen: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=400&fit=crop',
+                    activo: true,
+                    ahorroEstimado: 15,
+                    horario: {
+                        activo: false,
+                        horaInicio: '13:00',
+                        horaFin: '20:00',
+                        dias: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+                    },
+                    grupos: [
+                        {
+                            id: 'g_bebida_m',
+                            titulo: 'Elige tu Café',
+                            icono: 'coffee',
+                            cantidad: 1,
+                            requerido: true,
+                            opciones: [
+                                { idProducto: 'p_cappuccino', nombre: 'Cappuccino', precioExtra: 0, default: true },
+                                { idProducto: 'p_espresso', nombre: 'Espresso', precioExtra: 0, default: false },
+                                { idProducto: 'p_latte', nombre: 'Latte Art', precioExtra: 10, default: false }
+                            ]
+                        },
+                        {
+                            id: 'g_pan_m',
+                            titulo: 'Elige tu Postre',
+                            icono: 'pie-chart',
+                            cantidad: 1,
+                            requerido: true,
+                            opciones: [
+                                { idProducto: 'p_muffin', nombre: 'Muffin Arándano', precioExtra: 0, default: true },
+                                { idProducto: 'p_croissant', nombre: 'Croissant', precioExtra: 5, default: false }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: 'combo_matcha_gourmet',
+                    nombre: 'Combo Matcha & Delicia Gourmet',
+                    descripcion: 'Matcha ceremonial japonés con arte latte y un croissant hojaldrado con mantequilla.',
+                    precioBase: 105,
+                    categoria: 'Combos',
+                    imagen: 'https://images.unsplash.com/photo-1515823064-d6e0c04616a7?w=400&h=400&fit=crop',
+                    activo: true,
+                    ahorroEstimado: 18,
+                    horario: {
+                        activo: false,
+                        horaInicio: '08:00',
+                        horaFin: '22:00',
+                        dias: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+                    },
+                    grupos: [
+                        {
+                            id: 'g_esp',
+                            titulo: 'Bebida de Especialidad',
+                            icono: 'sparkles',
+                            cantidad: 1,
+                            requerido: true,
+                            opciones: [
+                                { idProducto: 'p_matcha', nombre: 'Matcha Latte', precioExtra: 0, default: true },
+                                { idProducto: 'p_latte', nombre: 'Latte Art', precioExtra: 0, default: false }
+                            ]
+                        },
+                        {
+                            id: 'g_rep',
+                            titulo: 'Acompañamiento Artesanal',
+                            icono: 'croissant',
+                            cantidad: 1,
+                            requerido: true,
+                            opciones: [
+                                { idProducto: 'p_croissant', nombre: 'Croissant', precioExtra: 0, default: true },
+                                { idProducto: 'p_muffin', nombre: 'Muffin Arándano', precioExtra: 0, default: false }
+                            ]
+                        }
+                    ]
                 }
             ]
         };

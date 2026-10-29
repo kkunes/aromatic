@@ -19,6 +19,8 @@ const settingsView = {
             return this.renderMaintenanceSection();
         } else if (this.activeSubView === 'promotions') {
             return this.renderPromotionsSection();
+        } else if (this.activeSubView === 'combos') {
+            return combosView.renderSettingsCombos();
         }
     },
 
@@ -42,6 +44,22 @@ const settingsView = {
                         </div>
                         <div style="margin-top: auto; display: flex; align-items: center; gap: 8px; color: var(--primary); font-weight: 600; font-size: 0.9rem;">
                             Configurar <i data-lucide="chevron-right" style="width: 16px;"></i>
+                        </div>
+                    </button>
+
+                    <button class="settings-nav-card" onclick="settingsView.switchSubView('combos')" style="border: none; background: white; padding: 32px; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); cursor: pointer; transition: all 0.3s ease; text-align: left; display: flex; flex-direction: column; gap: 20px; border: 1.5px solid rgba(226, 150, 93, 0.3);">
+                        <div style="width: 60px; height: 60px; background: rgba(226, 150, 93, 0.15); border-radius: 18px; display: flex; align-items: center; justify-content: center; color: var(--accent);">
+                            <i data-lucide="layers" style="width: 30px; height: 30px;"></i>
+                        </div>
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                <h3 style="margin: 0; font-size: 1.25rem;">Combos y Paquetes</h3>
+                                <span style="background: rgba(226, 150, 93, 0.2); color: var(--accent); font-size: 0.65rem; font-weight: 800; padding: 2px 7px; border-radius: 6px; letter-spacing: 0.5px;">ESTRATEGIA</span>
+                            </div>
+                            <p style="margin: 0; color: var(--text-muted); font-size: 0.9rem; line-height: 1.4;">Crea paquetes con reglas de precio, sobrecostos de especialidad y control de insumos.</p>
+                        </div>
+                        <div style="margin-top: auto; display: flex; align-items: center; gap: 8px; color: var(--accent); font-weight: 600; font-size: 0.9rem;">
+                            Administrar Paquetes <i data-lucide="chevron-right" style="width: 16px;"></i>
                         </div>
                     </button>
 
