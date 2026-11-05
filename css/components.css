@@ -1995,3 +1995,106 @@ input:checked+.slider:before {
     color: #b91c1c;
     border: 1px solid #fecaca;
 }
+
+
+/* ==========================================================================
+   10. Enhanced Product Customizer & Global Extras Engine
+   ========================================================================== */
+.customize-modal {
+    width: 580px;
+    max-width: 95vw;
+}
+
+.customize-recipe-pill {
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    user-select: none;
+}
+
+.customize-recipe-pill:hover {
+    border-color: #cbd5e1;
+}
+
+.extra-option-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    user-select: none;
+}
+
+.extra-option-card:hover {
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+}
+
+.extra-option-card.selected {
+    background: #f0fdf4;
+    border-color: #22c55e;
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.12);
+}
+
+.extra-option-card.out-of-stock {
+    opacity: 0.5;
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    cursor: not-allowed;
+}
+
+.extra-price-tag {
+    background: #ecfdf5;
+    color: #15803d;
+    font-weight: 700;
+    font-size: 0.82rem;
+    padding: 2px 7px;
+    border-radius: 6px;
+    border: 1px solid #bbf7d0;
+    display: inline-block;
+}
+
+.extra-stepper-btn {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: white;
+    font-weight: 800;
+    font-size: 0.85rem;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.extra-stepper-btn:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+}
+
+.extra-filter-btn {
+    transition: all 0.2s ease;
+}
+
+.quick-note-pill {
+    transition: all 0.15s ease;
+}
+
+.quick-note-pill:hover {
+    background: #f1f5f9 !important;
+    border-color: #cbd5e1 !important;
+    color: var(--primary) !important;
+}
+
+.quick-note-pill.active {
+    background: #fef3c7 !important;
+    border-color: #f59e0b !important;
+    color: #92400e !important;
+}

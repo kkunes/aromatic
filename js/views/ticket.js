@@ -128,7 +128,7 @@ const ticketView = {
                                             ${omittedHTML}
                                             ${config.mostrarExtras && item.extras && item.extras.length > 0 ? `
                                                 <div style="font-size: 0.85em; color: #000;">
-                                                    ${item.extras.map(e => `+ ${e.nombre}`).join('<br>')}
+                                                    ${item.extras.map(e => `+ ${e.nombre}${e.cantidad && e.cantidad > 1 ? ` (x${e.cantidad})` : ''}`).join('<br>')}
                                                 </div>
                                             ` : ''}
                                         </td>
@@ -352,7 +352,7 @@ const ticketView = {
                                             ${omittedHTML}
                                             ${item.extras && item.extras.length > 0 ? `
                                                 <div style="font-size: 0.95em; margin-top: 2px;">
-                                                    ${item.extras.map(e => `+ ${e.nombre}`).join('<br>')}
+                                                    ${item.extras.map(e => `+ ${e.nombre}${e.cantidad && e.cantidad > 1 ? ` (x${e.cantidad})` : ''}`).join('<br>')}
                                                 </div>
                                             ` : ''}
                                         </td>

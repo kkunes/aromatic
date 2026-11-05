@@ -39,9 +39,37 @@ const db = {
                     // Seed defaults into local DB
                     this.setLocalCollection(name, defaults[name]);
                     resolve(defaults[name]);
-                } else {
-                    resolve(result || []);
+                    return;
                 }
+                
+                result = result || [];
+                // Smart auto-provisioning of standard demo items
+                if (name === 'insumos' && result.length > 0) {
+                    const hasHelado = result.some(i => (i.nombre || '').toLowerCase().includes('helado'));
+                    if (!hasHelado) {
+                        result.push(
+                            { id: 'ins_helado', nombre: 'Helado de Vainilla', unidad: 'porción', stock: 30, stockMinimo: 5, precioExtra: 20, categoria: 'Adicionales' },
+                            { id: 'ins_nutella', nombre: 'Nutella / Avellana', unidad: 'porción', stock: 25, stockMinimo: 5, precioExtra: 18, categoria: 'Toppings' },
+                            { id: 'ins_jarabe_caramelo', nombre: 'Jarabe de Caramelo', unidad: 'shot', stock: 40, stockMinimo: 8, precioExtra: 12, categoria: 'Jarabes' }
+                        );
+                        this.setLocalCollection(name, result);
+                    }
+                }
+                if (name === 'productos' && result.length > 0) {
+                    const hasWaffle = result.some(p => (p.nombre || '').toLowerCase().includes('waffle'));
+                    if (!hasWaffle) {
+                        result.push({
+                            id: 'prod_waffle',
+                            nombre: 'Waffle Belga',
+                            precio: 65,
+                            categoria: 'Repostería',
+                            imagen: 'https://images.unsplash.com/photo-1562376552-0d160a2f238d?w=200&h=200&fit=crop',
+                            insumos: []
+                        });
+                        this.setLocalCollection(name, result);
+                    }
+                }
+                resolve(result);
             };
             request.onerror = () => resolve([]);
         });
@@ -361,11 +389,15 @@ const db = {
                 { nombre: 'Muffin Arándano', precio: 40, categoria: 'Repostería', imagen: 'https://images.unsplash.com/photo-1607958996333-41aef7caefaa?w=200&h=200&fit=crop' },
                 { nombre: 'Croissant', precio: 48, categoria: 'Repostería', imagen: 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=200&h=200&fit=crop' },
                 { nombre: 'Matcha Latte', precio: 75, categoria: 'Especiales', imagen: 'https://images.unsplash.com/photo-1515823064-d6e0c04616a7?w=200&h=200&fit=crop' },
+                { id: 'p_waffle', nombre: 'Waffle Belga', precio: 65, categoria: 'Repostería', imagen: 'https://images.unsplash.com/photo-1562376552-0d160a2f238d?w=200&h=200&fit=crop', insumos: [] },
             ],
             insumos: [
                 { id: '1', nombre: 'Café en Grano', unidad: 'kg', stock: 15, stockMinimo: 5, precioExtra: 0 },
                 { id: '2', nombre: 'Leche Entera', unidad: 'lt', stock: 24, stockMinimo: 6, precioExtra: 15 },
                 { id: '3', nombre: 'Azúcar Blanca', unidad: 'kg', stock: 10, stockMinimo: 2, precioExtra: 5 },
+                { id: '4', nombre: 'Helado de Vainilla', unidad: 'porción', stock: 30, stockMinimo: 5, precioExtra: 20, categoria: 'Adicionales' },
+                { id: '5', nombre: 'Nutella / Avellana', unidad: 'porción', stock: 25, stockMinimo: 5, precioExtra: 18, categoria: 'Toppings' },
+                { id: '6', nombre: 'Jarabe de Caramelo', unidad: 'shot', stock: 40, stockMinimo: 8, precioExtra: 12, categoria: 'Jarabes' },
             ],
             mesas: [
                 { id: 'M1', nombre: 'Mesa 1', area: 'Principal', estado: 'libre', orden: null, capacidad: 4 },

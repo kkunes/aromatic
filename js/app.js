@@ -1288,9 +1288,8 @@ class AromaticApp {
                 cartItem.extras.forEach(extra => {
                     const prodRef = allProducts.find(p => p.id === cartItem.id || p.nombre.toLowerCase() === (cartItem.nombre || '').toLowerCase());
                     const recipeEntry = prodRef?.insumos?.find(ri => ri.idInsumo === extra.idInsumo);
-                    if (recipeEntry) {
-                        consumptionMap[extra.idInsumo] = (consumptionMap[extra.idInsumo] || 0) + (recipeEntry.cantidad * qty);
-                    }
+                    const portion = (recipeEntry ? recipeEntry.cantidad : 1) * (extra.cantidad || 1);
+                    consumptionMap[extra.idInsumo] = (consumptionMap[extra.idInsumo] || 0) + (portion * qty);
                 });
             }
         };
@@ -1339,10 +1338,10 @@ class AromaticApp {
                 if (subItem.extras && subItem.extras.length > 0) {
                     subItem.extras.forEach(extra => {
                         const recipeEntry = subProd?.insumos?.find(ri => ri.idInsumo === extra.idInsumo);
-                        if (recipeEntry) {
-                            relevantInsumoIds.add(extra.idInsumo);
-                            consumptionMap[extra.idInsumo] = (consumptionMap[extra.idInsumo] || 0) + (recipeEntry.cantidad * subQty);
-                        }
+                        const portion = (recipeEntry ? recipeEntry.cantidad : 1) * (extra.cantidad || 1);
+                        relevantInsumoIds.add(extra.idInsumo);
+                        validationRecipes.push({ idInsumo: extra.idInsumo, cantidad: portion * (subItem.quantity || 1) });
+                        consumptionMap[extra.idInsumo] = (consumptionMap[extra.idInsumo] || 0) + (portion * subQty);
                     });
                 }
             }
@@ -1359,13 +1358,13 @@ class AromaticApp {
                 consumptionMap[recipeItem.idInsumo] = (consumptionMap[recipeItem.idInsumo] || 0) + (recipeItem.cantidad * itemToValidate.quantity);
             });
 
-            if (targetProd && itemToValidate.extras && itemToValidate.extras.length > 0) {
+            if (itemToValidate.extras && itemToValidate.extras.length > 0) {
                 itemToValidate.extras.forEach(extra => {
-                    const recipeEntry = targetProd.insumos.find(ri => ri.idInsumo === extra.idInsumo);
-                    if (recipeEntry) {
-                        relevantInsumoIds.add(extra.idInsumo);
-                        consumptionMap[extra.idInsumo] = (consumptionMap[extra.idInsumo] || 0) + (recipeEntry.cantidad * itemToValidate.quantity);
-                    }
+                    const recipeEntry = targetProd?.insumos?.find(ri => ri.idInsumo === extra.idInsumo);
+                    const portion = (recipeEntry ? recipeEntry.cantidad : 1) * (extra.cantidad || 1);
+                    relevantInsumoIds.add(extra.idInsumo);
+                    validationRecipes.push({ idInsumo: extra.idInsumo, cantidad: portion });
+                    consumptionMap[extra.idInsumo] = (consumptionMap[extra.idInsumo] || 0) + (portion * itemToValidate.quantity);
                 });
             }
         }
@@ -1630,7 +1629,7 @@ class AromaticApp {
                             ` : ''}
                             ${item.extras && item.extras.length > 0 ? `
                                 <div class="cart-item-extras">
-                                    ${item.extras.map(e => `<span>${e.nombre}</span>`).join('')}
+                                    ${item.extras.map(e => `<span>+ ${e.nombre}${e.cantidad && e.cantidad > 1 ? ` (x${e.cantidad})` : ''}</span>`).join('')}
                                 </div>
                             ` : ''}
                         </div>
@@ -1760,126 +1759,528 @@ class AromaticApp {
 
     async showCustomizeModal(index) {
         const item = this.cart[index];
+        if (!item) return;
+
         const modal = document.getElementById('modalContainer');
         const modalContent = modal.querySelector('.modal-content');
 
         const productos = await db.getCollection('productos');
-        const product = productos.find(p => p.id === item.id);
-        const allInsumos = await db.getCollection('insumos');
+        const product = productos.find(p => p.id === item.id || (p.nombre && p.nombre.toLowerCase() === (item.nombre || '').toLowerCase()));
+        const allInsumos = (await db.getCollection('insumos')) || [];
 
+        // 1. Prepare Recipe Ingredients
         const recipeIngredients = [];
-        const possibleExtras = [];
-
-        if (product && product.insumos) {
+        const recipeInsumoIds = new Set();
+        if (product && product.insumos && product.insumos.length > 0) {
             product.insumos.forEach(ri => {
                 const ins = allInsumos.find(i => i.id === ri.idInsumo);
                 if (ins) {
-                    recipeIngredients.push(ins);
-                    if (ins.precioExtra > 0) {
-                        possibleExtras.push(ins);
-                    }
+                    recipeIngredients.push({
+                        ...ins,
+                        cantidadReceta: ri.cantidad
+                    });
+                    recipeInsumoIds.add(ins.id);
                 }
             });
         }
 
+        // 2. Prepare Available Extras Catalog
+        // Includes: All insumos with precioExtra > 0, insumos in recipe, or already selected in this item
+        const selectedExtrasMap = {};
+        if (item.extras && item.extras.length > 0) {
+            item.extras.forEach(e => {
+                const insRef = allInsumos.find(i => i.id === e.idInsumo);
+                const unitPrice = typeof e.precioUnitario === 'number' ? e.precioUnitario : (insRef ? (insRef.precioExtra || 0) : (e.precio / (e.cantidad || 1)));
+                selectedExtrasMap[e.idInsumo] = {
+                    idInsumo: e.idInsumo,
+                    nombre: e.nombre,
+                    precioUnitario: unitPrice,
+                    cantidad: e.cantidad || 1,
+                    precio: e.precio,
+                    unidad: e.unidad || (insRef ? insRef.unidad : 'porción')
+                };
+            });
+        }
+
+        // Insumos catalog prioritized:
+        // Priority 1: Already selected
+        // Priority 2: Configured extras (precioExtra > 0)
+        // Priority 3: Other inventory supplies
+        const catalogInsumos = allInsumos.map(ins => {
+            const isSelected = !!selectedExtrasMap[ins.id];
+            const isRecipe = recipeInsumoIds.has(ins.id);
+            const precioExtra = typeof ins.precioExtra === 'number' ? ins.precioExtra : 0;
+            return {
+                ...ins,
+                precioExtra,
+                isSelected,
+                isRecipe,
+                hasExtraPrice: precioExtra > 0
+            };
+        }).sort((a, b) => {
+            if (a.isSelected !== b.isSelected) return a.isSelected ? -1 : 1;
+            if (a.hasExtraPrice !== b.hasExtraPrice) return a.hasExtraPrice ? -1 : 1;
+            if (a.isRecipe !== b.isRecipe) return a.isRecipe ? -1 : 1;
+            return a.nombre.localeCompare(b.nombre);
+        });
+
+        const basePrice = item.precio;
+        const calcExtrasTotal = () => {
+            return Object.values(selectedExtrasMap).reduce((sum, e) => sum + (e.precio || 0), 0);
+        };
+
+        // Render Modal Shell
         modalContent.innerHTML = `
-            <div class="customize-modal" style="width: 450px;">
-                <h2 style="margin-bottom: 20px; font-family: 'Playfair Display', serif;">Personalizar: ${item.nombre}</h2>
-                
-                <!-- Recipe Ingredients Section -->
-                <div style="margin-bottom: 24px;">
-                    <h3 style="font-size: 1rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: var(--primary);">
-                        <i data-lucide="info" style="width: 16px; color: var(--primary);"></i> Ingredientes incluidos
-                    </h3>
-                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Desmarque los ingredientes que el cliente no desea incluir.</p>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                        ${recipeIngredients.map(ins => {
-            const isIncluded = !(item.omitted && item.omitted.includes(ins.id));
-            return `
-                                <label style="display: flex; align-items: center; gap: 10px; padding: 10px; background: ${isIncluded ? '#f8f8f8' : '#fff1f2'}; border: 1px solid ${isIncluded ? '#eee' : '#fecaca'}; border-radius: 12px; cursor: pointer; transition: all 0.2s;">
-                                    <input type="checkbox" class="include-recipe-checkbox" data-id="${ins.id}" ${isIncluded ? 'checked' : ''} style="width: 18px; height: 18px; accent-color: var(--primary);">
-                                    <span style="font-size: 0.9rem; font-weight: 500; color: ${isIncluded ? 'var(--primary)' : '#991b1b'}">${ins.nombre}</span>
-                                </label>
-                            `;
-        }).join('')}
+            <div class="customize-modal">
+                <!-- Header -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 0.72rem; text-transform: uppercase; font-weight: 800; background: rgba(226,150,93,0.15); color: var(--accent); padding: 3px 8px; border-radius: 6px;">
+                                Personalización
+                            </span>
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">
+                                ${item.quantity > 1 ? `${item.quantity} unidades en comanda` : '1 unidad'}
+                            </span>
+                        </div>
+                        <h2 style="margin: 6px 0 0 0; font-family: 'Playfair Display', serif; font-size: 1.55rem; color: var(--primary);">
+                            ${item.nombre}
+                        </h2>
+                    </div>
+                    <button id="closeCustomizeX" style="background: none; border: none; font-size: 1.6rem; line-height: 1; color: #94a3b8; cursor: pointer; padding: 2px 6px;">&times;</button>
+                </div>
+
+                <!-- Live Price Summary Banner -->
+                <div id="customizePriceBanner" style="display: flex; justify-content: space-between; align-items: center; background: linear-gradient(135deg, rgba(226, 150, 93, 0.12), rgba(74, 55, 40, 0.05)); border: 1.5px solid rgba(226, 150, 93, 0.25); border-radius: 16px; padding: 12px 18px; margin-bottom: 20px;">
+                    <div>
+                        <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 700;">Desglose de Precio</div>
+                        <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 2px;">
+                            <span style="font-size: 0.9rem; color: #475569; font-weight: 600;">Base: $${basePrice.toFixed(2)}</span>
+                            <span id="liveExtrasDiff" style="font-size: 0.9rem; font-weight: 700; color: #16a34a;">
+                                ${calcExtrasTotal() > 0 ? `+ $${calcExtrasTotal().toFixed(2)} extras` : '+ $0.00 extras'}
+                            </span>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 700;">Total Unitario</div>
+                        <div id="liveTotalPrice" style="font-size: 1.4rem; font-weight: 800; color: var(--primary); font-family: 'Outfit', sans-serif;">
+                            $${(basePrice + calcExtrasTotal()).toFixed(2)}
+                        </div>
                     </div>
                 </div>
 
-                <!-- Extras Section -->
-                <div class="extras-section" style="margin-bottom: 24px;">
-                    <h3 style="font-size: 1rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: var(--primary);">
-                        <i data-lucide="plus-circle" style="width: 16px; color: var(--success);"></i> ¿Agregar extras?
-                    </h3>
-                    ${possibleExtras.length === 0 ?
-                '<p style="color: #999; font-size: 0.85rem; background: #f8f8f8; padding: 15px; border-radius: 12px; text-align: center;">No hay extras disponibles.</p>' :
-                `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                            ${possibleExtras.map(ins => {
-                    const isAdded = item.extras && item.extras.find(e => e.idInsumo === ins.id);
-                    return `
-                                    <label class="extra-option" style="display: flex; align-items: center; gap: 10px; padding: 10px; background: ${isAdded ? '#f0fdf4' : '#fff'}; border: 1px solid ${isAdded ? '#bbf7d0' : '#eee'}; border-radius: 12px; cursor: pointer; transition: all 0.2s;">
-                                        <input type="checkbox" class="extra-checkbox" data-id="${ins.id}" data-nombre="${ins.nombre}" data-precio="${ins.precioExtra}" ${isAdded ? 'checked' : ''} style="width: 18px; height: 18px; accent-color: var(--success);">
-                                        <div>
-                                            <span style="display: block; font-weight: 500; font-size: 0.9rem;">${ins.nombre}</span>
-                                            <small style="color: #15803d; font-weight: 600;">+$${ins.precioExtra.toFixed(2)}</small>
+                <!-- Section 1: Recipe Ingredients -->
+                <div style="margin-bottom: 22px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <h3 style="font-size: 0.95rem; margin: 0; display: flex; align-items: center; gap: 8px; color: var(--primary); font-weight: 700;">
+                            <i data-lucide="layers" style="width: 16px; color: var(--primary);"></i> Ingredientes de la Receta
+                        </h3>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">
+                            ${recipeIngredients.length > 0 ? 'Desmarque para omitir' : 'Sin receta base obligatoria'}
+                        </span>
+                    </div>
+
+                    ${recipeIngredients.length === 0 ? `
+                        <div style="padding: 12px 16px; background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 14px; display: flex; align-items: center; gap: 10px; color: #64748b; font-size: 0.85rem;">
+                            <i data-lucide="check-circle-2" style="width: 18px; color: var(--accent); flex-shrink: 0;"></i>
+                            <span>Este producto no tiene ingredientes base obligatorios en su receta original. Puedes agregarle cualquier adicional o topping del catálogo abajo.</span>
+                        </div>
+                    ` : `
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            ${recipeIngredients.map(ins => {
+                                const isIncluded = !(item.omitted && item.omitted.includes(ins.id));
+                                return `
+                                    <label class="customize-recipe-pill" data-id="${ins.id}" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; background: ${isIncluded ? '#ffffff' : '#fff1f2'}; border: 1.5px solid ${isIncluded ? '#e2e8f0' : '#fecaca'}; border-radius: 12px; cursor: pointer;">
+                                        <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+                                            <input type="checkbox" class="include-recipe-checkbox" data-id="${ins.id}" ${isIncluded ? 'checked' : ''} style="width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer;">
+                                            <div style="min-width: 0;">
+                                                <span class="recipe-ins-name" style="display: block; font-size: 0.85rem; font-weight: 600; color: ${isIncluded ? 'var(--primary)' : '#991b1b'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                                    ${ins.nombre}
+                                                </span>
+                                                <small style="font-size: 0.72rem; color: ${isIncluded ? '#64748b' : '#b91c1c'};">
+                                                    ${ins.cantidadReceta ? `${ins.cantidadReceta} ${ins.unidad || ''}` : ''}
+                                                </small>
+                                            </div>
                                         </div>
+                                        <span class="recipe-status-badge" style="font-size: 0.7rem; font-weight: 700; padding: 2px 6px; border-radius: 6px; background: ${isIncluded ? '#f1f5f9' : '#fee2e2'}; color: ${isIncluded ? '#475569' : '#b91c1c'}; white-space: nowrap;">
+                                            ${isIncluded ? 'Incluido' : 'Omitido'}
+                                        </span>
                                     </label>
                                 `;
-                }).join('')}
-                        </div>`
-            }
+                            }).join('')}
+                        </div>
+                    `}
                 </div>
 
+                <!-- Section 2: Global Extras & Add-ons Catalog -->
+                <div class="extras-section" style="margin-bottom: 22px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h3 style="font-size: 0.95rem; margin: 0; display: flex; align-items: center; gap: 8px; color: var(--primary); font-weight: 700;">
+                            <i data-lucide="plus-circle" style="width: 16px; color: #16a34a;"></i> Adicionales y Extras Disponibles
+                        </h3>
+                        <span id="extrasCountTag" style="font-size: 0.75rem; font-weight: 700; background: #ecfdf5; color: #15803d; padding: 3px 8px; border-radius: 20px; border: 1px solid #bbf7d0;">
+                            ${Object.keys(selectedExtrasMap).length} seleccionados
+                        </span>
+                    </div>
+
+                    <!-- Search & Filter Controls -->
+                    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                        <div style="position: relative; flex: 1;">
+                            <i data-lucide="search" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: #94a3b8;"></i>
+                            <input type="text" id="extraSearchInput" placeholder="Buscar adicional (ej. Helado, Nutella, Jarabe)..." style="width: 100%; padding: 8px 10px 8px 32px; font-size: 0.85rem; border: 1.5px solid #cbd5e1; border-radius: 10px; outline: none;">
+                        </div>
+                        <div style="display: flex; gap: 4px;">
+                            <button type="button" class="extra-filter-btn" data-filter="sugeridos" style="padding: 6px 12px; font-size: 0.75rem; font-weight: 700; border-radius: 8px; border: 1px solid #cbd5e1; background: var(--primary); color: white; cursor: pointer;">
+                                ⭐ Extras
+                            </button>
+                            <button type="button" class="extra-filter-btn" data-filter="todos" style="padding: 6px 12px; font-size: 0.75rem; font-weight: 600; border-radius: 8px; border: 1px solid #cbd5e1; background: white; color: #64748b; cursor: pointer;">
+                                📦 Todo
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Extras Cards Grid -->
+                    <div id="extrasGridContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-height: 230px; overflow-y: auto; padding-right: 4px;">
+                        <!-- Generated Dynamically -->
+                    </div>
+                </div>
+
+                <!-- Section 3: Split Options (if quantity > 1) -->
                 ${item.quantity > 1 ? `
-                    <div style="margin-bottom: 24px; padding: 15px; background: rgba(226, 150, 93, 0.08); border-radius: 16px; border: 1px solid rgba(226, 150, 93, 0.2);">
-                        <h4 style="margin: 0 0 10px 0; font-size: 0.9rem; color: var(--primary); display: flex; align-items: center; gap: 8px;">
-                            <i data-lucide="copy-plus" style="width: 16px;"></i> Unidades a personalizar
+                    <div style="margin-bottom: 20px; padding: 12px 14px; background: rgba(226, 150, 93, 0.08); border-radius: 14px; border: 1px solid rgba(226, 150, 93, 0.2);">
+                        <h4 style="margin: 0 0 8px 0; font-size: 0.85rem; color: var(--primary); display: flex; align-items: center; gap: 6px; font-weight: 700;">
+                            <i data-lucide="copy-plus" style="width: 14px;"></i> Unidades a personalizar
                         </h4>
                         <div style="display: flex; gap: 10px;">
-                            <label style="flex: 1; display: flex; align-items: center; gap: 8px; cursor: pointer; background: white; padding: 10px; border-radius: 12px; border: 1px solid #ddd;">
+                            <label style="flex: 1; display: flex; align-items: center; gap: 8px; cursor: pointer; background: white; padding: 8px 10px; border-radius: 10px; border: 1px solid #ddd;">
                                 <input type="radio" name="splitOption" value="all" checked style="accent-color: var(--primary);">
-                                <span style="font-size: 0.85rem; font-weight: 600;">Todas (${item.quantity})</span>
+                                <span style="font-size: 0.82rem; font-weight: 600;">Todas (${item.quantity})</span>
                             </label>
-                            <label style="flex: 1; display: flex; align-items: center; gap: 8px; cursor: pointer; background: white; padding: 10px; border-radius: 12px; border: 1px solid #ddd;">
+                            <label style="flex: 1; display: flex; align-items: center; gap: 8px; cursor: pointer; background: white; padding: 8px 10px; border-radius: 10px; border: 1px solid #ddd;">
                                 <input type="radio" name="splitOption" value="one" style="accent-color: var(--primary);">
-                                <span style="font-size: 0.85rem; font-weight: 600;">Solo 1 unidad</span>
+                                <span style="font-size: 0.82rem; font-weight: 600;">Solo 1 unidad</span>
                             </label>
                         </div>
-                        <p style="margin: 8px 0 0; font-size: 0.75rem; color: var(--text-muted);">Si eliges "Solo 1", se creará una línea separada para esta personalización.</p>
+                        <p style="margin: 6px 0 0; font-size: 0.72rem; color: var(--text-muted);">Si eliges "Solo 1", se creará una línea separada para esta personalización en el carrito.</p>
                     </div>
                 ` : ''}
 
-                <div class="input-group" style="margin-bottom: 24px;">
-                    <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.9rem; margin-bottom: 8px; color: var(--text-muted);">
-                        <i data-lucide="message-square" style="width: 16px;"></i> Instrucciones Especiales
+                <!-- Section 4: Special Instructions with Quick Tags -->
+                <div style="margin-bottom: 22px;">
+                    <label style="display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 0.85rem; margin-bottom: 6px; color: var(--primary);">
+                        <span style="display: flex; align-items: center; gap: 6px;">
+                            <i data-lucide="message-square" style="width: 14px;"></i> Instrucciones de Preparación
+                        </span>
+                        <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal;">Toque un atajo para añadir</span>
                     </label>
-                    <textarea id="itemNota" class="large-input" style="height: 60px; font-size: 0.9rem; padding: 12px; resize: none; border-radius: 12px;">${item.note || item.nota || ''}</textarea>
+                    <div style="display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px;">
+                        ${['Bien caliente', 'Poco dulce', 'Para llevar', 'Separado', 'Sin hielo', 'Extra servilletas'].map(tag => `
+                            <button type="button" class="quick-note-pill" data-tag="${tag}" style="border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 20px; padding: 3px 10px; font-size: 0.75rem; font-weight: 600; color: #475569; cursor: pointer;">
+                                + ${tag}
+                            </button>
+                        `).join('')}
+                    </div>
+                    <textarea id="itemNota" class="large-input" placeholder="Ej: Poner el helado en un vasito por separado..." style="height: 52px; font-size: 0.88rem; padding: 10px; resize: none; border-radius: 12px; width: 100%; border: 1.5px solid #cbd5e1;">${item.note || item.nota || ''}</textarea>
                 </div>
 
-                <div style="display: flex; gap: 12px;">
-                    <button class="btn-secondary" id="cancelCustomize" style="flex: 1; padding: 14px;">Cancelar</button>
-                    <button class="btn-primary" id="saveCustomize" style="flex: 2; padding: 14px; font-weight: 700;">Aplicar Cambios</button>
+                <!-- Footer Buttons -->
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-secondary" id="cancelCustomize" style="flex: 1; padding: 12px 14px; border-radius: 12px;">
+                        Cancelar
+                    </button>
+                    <button class="btn-primary" id="saveCustomize" style="flex: 2; padding: 12px 14px; font-weight: 700; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <i data-lucide="check" style="width: 18px;"></i>
+                        <span id="saveCustomizeBtnText">Aplicar Cambios ($${((basePrice + calcExtrasTotal()) * (item.quantity || 1)).toFixed(2)})</span>
+                    </button>
                 </div>
             </div>
         `;
 
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-        modal.classList.remove('hidden');
+        // 3. Interactive State & Grid Management
+        let currentFilter = 'sugeridos';
+        let currentSearch = '';
 
-        document.getElementById('cancelCustomize').onclick = () => modal.classList.add('hidden');
-        document.getElementById('saveCustomize').onclick = () => {
-            const nota = document.getElementById('itemNota').value.trim();
-            const extras = [];
-            const omitted = [];
+        const updateLiveUI = () => {
+            const extrasTotal = calcExtrasTotal();
+            const unitTotal = basePrice + extrasTotal;
+            const splitOption = modal.querySelector('input[name="splitOption"]:checked')?.value || 'all';
+            const count = Object.keys(selectedExtrasMap).length;
+            const applicableQty = splitOption === 'one' ? 1 : item.quantity;
 
-            modal.querySelectorAll('.extra-checkbox:checked').forEach(cb => {
-                extras.push({
-                    idInsumo: cb.getAttribute('data-id'),
-                    nombre: cb.getAttribute('data-nombre'),
-                    precio: parseFloat(cb.getAttribute('data-precio'))
-                });
+            const liveExtrasDiff = document.getElementById('liveExtrasDiff');
+            const liveTotalPrice = document.getElementById('liveTotalPrice');
+            const saveBtnText = document.getElementById('saveCustomizeBtnText');
+            const extrasCountTag = document.getElementById('extrasCountTag');
+
+            if (liveExtrasDiff) {
+                liveExtrasDiff.textContent = extrasTotal > 0 ? `+ $${extrasTotal.toFixed(2)} extras` : '+ $0.00 extras';
+            }
+            if (liveTotalPrice) {
+                liveTotalPrice.textContent = `$${unitTotal.toFixed(2)}`;
+            }
+            if (saveBtnText) {
+                saveBtnText.textContent = `Aplicar Cambios ($${(unitTotal * applicableQty).toFixed(2)})`;
+            }
+            if (extrasCountTag) {
+                extrasCountTag.textContent = `${count} seleccionado${count === 1 ? '' : 's'}`;
+            }
+        };
+
+        const renderExtrasGrid = () => {
+            const container = document.getElementById('extrasGridContainer');
+            if (!container) return;
+
+            const searchLower = currentSearch.toLowerCase().trim();
+            const filtered = catalogInsumos.filter(ins => {
+                const matchesFilter = currentFilter === 'todos' || ins.hasExtraPrice || ins.isSelected || ins.isRecipe;
+                if (!matchesFilter) return false;
+
+                if (searchLower) {
+                    const matchName = ins.nombre.toLowerCase().includes(searchLower);
+                    const matchCat = (ins.categoria || '').toLowerCase().includes(searchLower);
+                    return matchName || matchCat;
+                }
+                return true;
             });
 
-            // If it is NOT checked, it means it's omitted
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div style="grid-column: span 2; text-align: center; padding: 25px 15px; background: #f8fafc; border-radius: 12px; border: 1.5px dashed #e2e8f0; color: #94a3b8; font-size: 0.85rem;">
+                        <i data-lucide="search-x" style="width: 24px; height: 24px; margin-bottom: 6px; display: block; margin-left: auto; margin-right: auto;"></i>
+                        No se encontraron adicionales con "${currentSearch}". Intente con otro término o cambie a "Todo".
+                    </div>
+                `;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                return;
+            }
+
+            container.innerHTML = filtered.map(ins => {
+                const sel = selectedExtrasMap[ins.id];
+                const isSelected = !!sel;
+                const isOutOfStock = typeof ins.stock === 'number' && ins.stock <= 0;
+                const portionQty = sel ? (sel.cantidad || 1) : 1;
+                const extraPrice = ins.precioExtra || 0;
+                const extraSubtotal = sel ? sel.precio : extraPrice;
+
+                return `
+                    <div class="extra-option-card ${isSelected ? 'selected' : ''} ${isOutOfStock ? 'out-of-stock' : ''}" data-id="${ins.id}">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+                            <div style="min-width: 0;">
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-weight: 700; font-size: 0.88rem; color: ${isSelected ? '#15803d' : 'var(--primary)'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                        ${ins.nombre}
+                                    </span>
+                                    ${ins.isRecipe ? `<span style="font-size: 0.65rem; background: #e0f2fe; color: #0369a1; padding: 1px 5px; border-radius: 4px; font-weight: 700;">Receta</span>` : ''}
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 6px; margin-top: 2px;">
+                                    <span style="font-size: 0.72rem; color: ${isOutOfStock ? '#ef4444' : '#64748b'}; font-weight: ${isOutOfStock ? '700' : '500'};">
+                                        ${isOutOfStock ? 'Agotado (0)' : `Disp: ${ins.stock} ${ins.unidad || 'uds'}`}
+                                    </span>
+                                </div>
+                            </div>
+                            <span class="extra-price-tag">
+                                +$${extraPrice.toFixed(2)}
+                            </span>
+                        </div>
+
+                        ${isSelected ? `
+                            <div class="extra-stepper-wrap" style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px; padding-top: 6px; border-top: 1px dashed #bbf7d0;">
+                                <span style="font-size: 0.72rem; color: #166534; font-weight: 700;">Porciones:</span>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <button type="button" class="extra-stepper-btn btn-minus" data-id="${ins.id}">-</button>
+                                    <span style="font-size: 0.85rem; font-weight: 800; min-width: 16px; text-align: center; color: #15803d;">${portionQty}</span>
+                                    <button type="button" class="extra-stepper-btn btn-plus" data-id="${ins.id}">+</button>
+                                    <span style="font-size: 0.8rem; font-weight: 800; color: #15803d; margin-left: 4px;">+$${extraSubtotal.toFixed(2)}</span>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            attachGridEvents();
+        };
+
+        const attachGridEvents = () => {
+            const container = document.getElementById('extrasGridContainer');
+            if (!container) return;
+
+            // Card click toggle
+            container.querySelectorAll('.extra-option-card').forEach(card => {
+                card.onclick = (e) => {
+                    // Ignore clicks on stepper buttons
+                    if (e.target.closest('.extra-stepper-btn')) return;
+
+                    const id = card.getAttribute('data-id');
+                    const ins = allInsumos.find(i => i.id === id);
+                    if (!ins) return;
+
+                    if (typeof ins.stock === 'number' && ins.stock <= 0) {
+                        this.showToast(`${ins.nombre} está agotado en inventario`, 'warning');
+                        if (typeof audioService !== 'undefined') audioService.playError();
+                        return;
+                    }
+
+                    if (selectedExtrasMap[id]) {
+                        delete selectedExtrasMap[id];
+                    } else {
+                        const unitPrice = typeof ins.precioExtra === 'number' ? ins.precioExtra : 0;
+                        selectedExtrasMap[id] = {
+                            idInsumo: ins.id,
+                            nombre: ins.nombre,
+                            precioUnitario: unitPrice,
+                            cantidad: 1,
+                            precio: unitPrice,
+                            unidad: ins.unidad || 'porción'
+                        };
+                        if (typeof audioService !== 'undefined') audioService.playClick();
+                    }
+
+                    updateLiveUI();
+                    renderExtrasGrid();
+                };
+            });
+
+            // Stepper Plus
+            container.querySelectorAll('.btn-plus').forEach(btn => {
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    const id = btn.getAttribute('data-id');
+                    const sel = selectedExtrasMap[id];
+                    if (sel) {
+                        sel.cantidad = (sel.cantidad || 1) + 1;
+                        sel.precio = sel.precioUnitario * sel.cantidad;
+                        if (typeof audioService !== 'undefined') audioService.playClick();
+                        updateLiveUI();
+                        renderExtrasGrid();
+                    }
+                };
+            });
+
+            // Stepper Minus
+            container.querySelectorAll('.btn-minus').forEach(btn => {
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    const id = btn.getAttribute('data-id');
+                    const sel = selectedExtrasMap[id];
+                    if (sel) {
+                        if (sel.cantidad > 1) {
+                            sel.cantidad--;
+                            sel.precio = sel.precioUnitario * sel.cantidad;
+                        } else {
+                            delete selectedExtrasMap[id];
+                        }
+                        if (typeof audioService !== 'undefined') audioService.playClick();
+                        updateLiveUI();
+                        renderExtrasGrid();
+                    }
+                };
+            });
+        };
+
+        // Initialize Extras List
+        renderExtrasGrid();
+
+        // 4. Attach Modal Shell Events
+        const searchInput = document.getElementById('extraSearchInput');
+        if (searchInput) {
+            searchInput.oninput = (e) => {
+                currentSearch = e.target.value;
+                renderExtrasGrid();
+            };
+        }
+
+        modal.querySelectorAll('.extra-filter-btn').forEach(btn => {
+            btn.onclick = () => {
+                modal.querySelectorAll('.extra-filter-btn').forEach(b => {
+                    b.style.background = 'white';
+                    b.style.color = '#64748b';
+                    b.style.fontWeight = '600';
+                });
+                btn.style.background = 'var(--primary)';
+                btn.style.color = 'white';
+                btn.style.fontWeight = '700';
+
+                currentFilter = btn.getAttribute('data-filter');
+                renderExtrasGrid();
+            };
+        });
+
+        // Recipe checkbox styles update
+        modal.querySelectorAll('.include-recipe-checkbox').forEach(cb => {
+            cb.onchange = () => {
+                const pill = cb.closest('.customize-recipe-pill');
+                const badge = pill.querySelector('.recipe-status-badge');
+                const name = pill.querySelector('.recipe-ins-name');
+
+                if (cb.checked) {
+                    pill.style.background = '#ffffff';
+                    pill.style.borderColor = '#e2e8f0';
+                    if (name) name.style.color = 'var(--primary)';
+                    if (badge) {
+                        badge.textContent = 'Incluido';
+                        badge.style.background = '#f1f5f9';
+                        badge.style.color = '#475569';
+                    }
+                } else {
+                    pill.style.background = '#fff1f2';
+                    pill.style.borderColor = '#fecaca';
+                    if (name) name.style.color = '#991b1b';
+                    if (badge) {
+                        badge.textContent = 'Omitido';
+                        badge.style.background = '#fee2e2';
+                        badge.style.color = '#b91c1c';
+                    }
+                }
+            };
+        });
+
+        // Quick Note Pills
+        modal.querySelectorAll('.quick-note-pill').forEach(btn => {
+            btn.onclick = () => {
+                const tag = btn.getAttribute('data-tag');
+                const noteInput = document.getElementById('itemNota');
+                if (!noteInput) return;
+
+                let current = noteInput.value.trim();
+                const tags = current ? current.split(',').map(t => t.trim()).filter(Boolean) : [];
+                const idx = tags.indexOf(tag);
+
+                if (idx >= 0) {
+                    tags.splice(idx, 1);
+                    btn.classList.remove('active');
+                } else {
+                    tags.push(tag);
+                    btn.classList.add('active');
+                }
+                noteInput.value = tags.join(', ');
+            };
+        });
+
+        // Split Option Radio Change
+        modal.querySelectorAll('input[name="splitOption"]').forEach(radio => {
+            radio.onchange = () => updateLiveUI();
+        });
+
+        // Close handlers
+        const closeModal = () => modal.classList.add('hidden');
+        document.getElementById('cancelCustomize').onclick = closeModal;
+        document.getElementById('closeCustomizeX').onclick = closeModal;
+
+        // Save Customization Handler
+        document.getElementById('saveCustomize').onclick = () => {
+            const nota = document.getElementById('itemNota').value.trim();
+            const extras = Object.entries(selectedExtrasMap).map(([idInsumo, data]) => ({
+                idInsumo,
+                nombre: data.nombre,
+                precio: data.precio,
+                precioUnitario: data.precioUnitario,
+                cantidad: data.cantidad || 1,
+                unidad: data.unidad || 'porción'
+            }));
+
+            const omitted = [];
             modal.querySelectorAll('.include-recipe-checkbox:not(:checked)').forEach(cb => {
                 omitted.push(cb.getAttribute('data-id'));
             });
@@ -1895,28 +2296,32 @@ class AromaticApp {
                     quantity: splitOption === 'one' ? 1 : this.cart[index].quantity
                 };
 
-                // Validate stock for this specific configuration
+                // Validate stock for this specific configuration (checks non-recipe extras & recipe ingredients)
                 const canSave = await this.validateStock(prospectiveItem, index);
                 if (!canSave) return;
 
                 if (splitOption === 'one' && this.cart[index].quantity > 1) {
-                    // Separar 1 unidad
+                    // Split line into 1 customized unit and remainder
                     this.cart[index].quantity--;
                     this.cart.push(prospectiveItem);
                 } else {
-                    // Aplicar a todas las unidades de esta línea
+                    // Apply to entire cart line
                     this.cart[index].nota = nota;
                     this.cart[index].extras = extras;
                     this.cart[index].omitted = omitted;
                 }
 
-                db.logAction('pos', 'personalizar_producto', `Item: ${item.nombre}, Nota: ${nota || 'Ninguna'}, Extras: ${extras.length}, Omitidos: ${omitted.length}`);
+                db.logAction('pos', 'personalizar_producto', `Item: ${item.nombre}, Nota: ${nota || 'Ninguna'}, Extras: ${extras.map(e => e.nombre).join(', ') || 'Ninguno'}, Omitidos: ${omitted.length}`);
+                if (typeof audioService !== 'undefined') audioService.playPop();
                 modal.classList.add('hidden');
                 this.updateCartUI();
             };
 
             runSave();
         };
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        modal.classList.remove('hidden');
     }
 
     async showCustomItemModal() {
@@ -3217,15 +3622,15 @@ class AromaticApp {
         const productos = await db.getCollection('productos');
         const product = productos.find(p => p.id === productId || p.nombre.toLowerCase() === (cartItem.nombre || '').toLowerCase());
 
+        const insumos = await db.getCollection('insumos') || [];
+
         // Check for recipe: either from permanent product or dynamic recipe in the cart item itself
         const recipe = (product && product.insumos) ? product.insumos : (cartItem.insumos || []);
 
         if (recipe && recipe.length > 0) {
-            const insumos = await db.getCollection('insumos');
-
-            // 1. Discount Recipe Ingredients
+            // 1. Discount/Restore Recipe Ingredients
             for (const recipeItem of recipe) {
-                // SKIP if the ingredient is marked as OMITTED by the user (only for permanent products)
+                // SKIP if the ingredient is marked as OMITTED by the user
                 if (cartItem.omitted && cartItem.omitted.includes(recipeItem.idInsumo)) {
                     continue;
                 }
@@ -3237,20 +3642,18 @@ class AromaticApp {
                     await db.updateDocument('insumos', insumo.id, { stock: Math.max(0, newStock) });
                 }
             }
+        }
 
-            // 2. Discount Extras (Only if we are in 'subtract' mode and they exist)
-            // Only applicable if we have a base product to reference recipe amounts
-            if (product && cartItem.extras && cartItem.extras.length > 0) {
-                for (const extra of cartItem.extras) {
-                    const recipeEntry = product.insumos.find(ri => ri.idInsumo === extra.idInsumo);
-                    if (recipeEntry) {
-                        const insumo = insumos.find(i => i.id === extra.idInsumo);
-                        if (insumo) {
-                            const totalAmount = recipeEntry.cantidad * itemQuantity;
-                            const newStock = operation === 'subtract' ? (insumo.stock - totalAmount) : (insumo.stock + totalAmount);
-                            await db.updateDocument('insumos', insumo.id, { stock: Math.max(0, newStock) });
-                        }
-                    }
+        // 2. Discount/Restore Extras (Deducts even if product has no recipe, or if extra is not in recipe)
+        if (cartItem.extras && cartItem.extras.length > 0) {
+            for (const extra of cartItem.extras) {
+                const recipeEntry = product?.insumos?.find(ri => ri.idInsumo === extra.idInsumo);
+                const insumo = insumos.find(i => i.id === extra.idInsumo);
+                if (insumo) {
+                    const portion = (recipeEntry ? recipeEntry.cantidad : 1) * (extra.cantidad || 1);
+                    const totalAmount = portion * itemQuantity;
+                    const newStock = operation === 'subtract' ? (insumo.stock - totalAmount) : (insumo.stock + totalAmount);
+                    await db.updateDocument('insumos', insumo.id, { stock: Math.max(0, newStock) });
                 }
             }
         }
