@@ -4,6 +4,7 @@ const posView = {
     combos: [],
     filteredCombos: [],
     currentCategory: 'all',
+    isCombosExpanded: false,
 
     async render() {
         this.products = await db.getCollection('productos');
@@ -152,29 +153,110 @@ const posView = {
 
     renderCurrentView() {
         if (this.currentCategory === 'combos') {
-            return this.renderCombos(this.filteredCombos);
+            return `
+                <div class="combos-section-header" style="grid-column: 1/-1; display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding: 12px 18px; background: linear-gradient(135deg, rgba(226,150,93,0.14), rgba(74,55,40,0.06)); border-radius: 16px; border: 1.5px solid rgba(226,150,93,0.3);">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div class="combos-header-icon-box">
+                            <i data-lucide="sparkles" style="width: 20px; height: 20px;"></i>
+                        </div>
+                        <div>
+                            <h3 class="combos-main-title">Catálogo Completo de Combos</h3>
+                            <p class="combos-sub-title">Personaliza cada ingrediente y ahorra en paquete</p>
+                        </div>
+                    </div>
+                    <span class="combos-count-badge">${this.filteredCombos.length} disponibles</span>
+                </div>
+                <div style="grid-column: 1/-1; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px;">
+                    ${this.renderCombos(this.filteredCombos)}
+                </div>
+            `;
         }
 
         if (this.currentCategory === 'all') {
-            const combosHTML = this.filteredCombos.length > 0 
-                ? `<div class="combos-section-header" style="grid-column: 1/-1; display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; padding-top: 5px;">
-                       <div style="display: flex; align-items: center; gap: 8px;">
-                           <div style="width: 28px; height: 28px; background: rgba(226,150,93,0.15); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--accent);">
-                               <i data-lucide="sparkles" style="width: 16px;"></i>
-                           </div>
-                           <h3 style="font-family: 'Playfair Display', serif; font-size: 1.3rem; margin: 0; color: var(--primary);">Combos & Paquetes Especiales</h3>
-                       </div>
-                       <span style="font-size: 0.8rem; color: var(--text-muted);">Armados con precio preferencial</span>
-                   </div>
-                   ${this.renderCombos(this.filteredCombos)}
-                   <div class="products-section-header" style="grid-column: 1/-1; display: flex; align-items: center; gap: 8px; margin-top: 15px; margin-bottom: 4px; padding-top: 10px; border-top: 1px dashed #e2e8f0;">
-                       <h3 style="font-family: 'Playfair Display', serif; font-size: 1.3rem; margin: 0; color: var(--primary);">Catálogo de Productos</h3>
-                   </div>`
-                : '';
+            const hasCombos = this.filteredCombos.length > 0;
+            const isExpanded = this.isCombosExpanded;
+
+            const combosHTML = hasCombos ? `
+                <div class="combos-collapsible-wrapper">
+                    <div id="combosAccordionHeader" 
+                         class="combos-accordion-header ${isExpanded ? 'is-expanded' : ''}" 
+                         onclick="posView.toggleCombosSection()" 
+                         role="button" 
+                         tabindex="0"
+                         title="Presiona para desplegar u ocultar los combos">
+                        
+                        <div class="combos-header-left">
+                            <div class="combos-header-icon-box">
+                                <i data-lucide="sparkles" style="width: 18px; height: 18px;"></i>
+                            </div>
+                            <div class="combos-header-titles">
+                                <div class="combos-title-row">
+                                    <h3 class="combos-main-title">Combos & Paquetes Especiales</h3>
+                                    <span class="combos-count-badge">${this.filteredCombos.length} paquetes</span>
+                                </div>
+                                <p class="combos-sub-title">
+                                    ${isExpanded ? 'Toca cualquier combo para armar los componentes a tu gusto' : 'Paquetes armados con precio preferencial y ahorro'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="combos-header-right">
+                            <div class="combos-toggle-pill">
+                                <span id="combosToggleLabel" class="combos-toggle-label">${isExpanded ? 'Ocultar combos' : 'Ver combos'}</span>
+                                <div class="combos-chevron-circle">
+                                    <i data-lucide="chevron-down" id="combosChevronIcon" style="transform: ${isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'}; transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); width: 15px; height: 15px;"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="combosAccordionBody" class="combos-accordion-body ${isExpanded ? 'expanded' : ''}">
+                        <div class="combos-accordion-inner">
+                            <div class="combos-cards-grid">
+                                ${this.renderCombos(this.filteredCombos)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="products-section-header" style="grid-column: 1/-1; display: flex; align-items: center; justify-content: space-between; margin-top: 14px; margin-bottom: 6px; padding-top: 10px; border-top: 1px dashed #e2e8f0;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 26px; height: 26px; background: #f8fafc; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--primary); border: 1px solid #e2e8f0;">
+                            <i data-lucide="coffee" style="width: 14px; height: 14px;"></i>
+                        </div>
+                        <h3 style="font-family: 'Playfair Display', serif; font-size: 1.25rem; margin: 0; color: var(--primary);">Catálogo de Productos</h3>
+                    </div>
+                    <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600;">${this.filteredProducts.length} productos</span>
+                </div>
+            ` : '';
+
             return combosHTML + this.renderProductsList(this.filteredProducts);
         }
 
         return this.renderProductsList(this.filteredProducts);
+    },
+
+    toggleCombosSection() {
+        this.isCombosExpanded = !this.isCombosExpanded;
+        const body = document.getElementById('combosAccordionBody');
+        const header = document.getElementById('combosAccordionHeader');
+        const chevron = document.getElementById('combosChevronIcon');
+        const label = document.getElementById('combosToggleLabel');
+
+        if (body && header) {
+            if (this.isCombosExpanded) {
+                body.classList.add('expanded');
+                header.classList.add('is-expanded');
+                if (chevron) chevron.style.transform = 'rotate(180deg)';
+                if (label) label.textContent = 'Ocultar combos';
+            } else {
+                body.classList.remove('expanded');
+                header.classList.remove('is-expanded');
+                if (chevron) chevron.style.transform = 'rotate(0deg)';
+                if (label) label.textContent = 'Ver combos';
+            }
+        }
+        if (typeof audioService !== 'undefined') audioService.playPop();
     },
 
     renderCombos(list) {
@@ -315,7 +397,7 @@ const posView = {
                 e.preventDefault();
                 const maxScroll = filtersContainer.scrollWidth - filtersContainer.clientWidth;
                 targetScroll = Math.max(0, Math.min(maxScroll, targetScroll + e.deltaY));
-                
+
                 if (!animationFrameId) {
                     animationFrameId = requestAnimationFrame(updateScroll);
                 }
